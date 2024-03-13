@@ -371,7 +371,8 @@ void lcd_into1()
 	lcd_print_char(1, 12, "YOU SAVED");
 	lcd_print_char(2, 17, "Rs");
 
-
+	lcd_print_digit_wos(2, 29, (Range.Odometer_Value*2)/1000);
+	lcd_print_digit_wos(2, 29, (Range.Odometer_Value*2)/1000);
 	lcd_print_digit_wos(2, 29, (Range.Odometer_Value*2)/1000);
 	lcd_print_digit_wos(2, 35, ((Range.Odometer_Value*2)%1000)/100);
 	lcd_print_digit_wos(2, 41, ((((Range.Odometer_Value*2)%1000)%100)/10));
