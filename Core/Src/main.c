@@ -68,19 +68,19 @@ uint32_t speed_count=0;
 uint32_t speed_count_temp=0;
 uint8_t after_sec=0;
 uint8_t Odo_Write[3];//Array to store odo-meter values for the purpose of writing data
-uint8_t Odo_Read[3];//Array to store the read odo-meter data retrieved from EEPROM
+uint8_t data_Read[3];//Array to store the read odo-meter data retrieved from EEPROM
 uint32_t Odo_Value;
 uint8_t Km_Flag=1;
 uint16_t inc_delay=0;
 uint8_t first_time=1;
+uint16_t Reserved_SOC=0;
 uint16_t can_delay=500;
 uint8_t can_state=0;
-uint16_t calib_reg=440;//1656-165;
+uint8_t Battery_high_Temp=0;
+#define  calib_reg 440//1656-165;
 uint16_t print_delay=2000;
 uint8_t print_state=0;
 uint8_t bat_icon_toogle=0;
-//RTC_TimeTypeDef sTime = {0};
-// RTC_DateTypeDef DateToUpdate = {0};
 struct Speed //structure declaration
 {
 	uint32_t Odometer_Value;//structure members
@@ -89,11 +89,10 @@ struct Speed //structure declaration
 void Split(uint32_t);//Function declaration
 void Merge();//Function declaration
 //Array declaration
-extern uint8_t Odo_Write[3];
-extern uint8_t Odo_Read[3];
+uint8_t data_Write[3];
+uint8_t data_Read[3];
 uint16_t calib_write[2];
 uint16_t calib_read[2];
-
 
 CAN_TxHeaderTypeDef TxHeader;// Adding structure variable for accessing Transmitter frame format element Eg: StdId,RTR..
 CAN_RxHeaderTypeDef RxHeader;// Adding Structure variable for accessing Receiver frame format element
@@ -129,58 +128,31 @@ void CAN_BMS(void);//Declaration
 
 void parllel_transmit(uint8_t data)
 {
-
-//	HAL_GPIO_WritePin(GPIOA, LCD_D0_Pin,((data & 0x01) ? GPIO_PIN_SET : GPIO_PIN_RESET));
-//	HAL_GPIO_WritePin(GPIOA, LCD_D1_Pin,((data & 0x02) ? GPIO_PIN_SET : GPIO_PIN_RESET));
-//	HAL_GPIO_WritePin(GPIOA, LCD_D2_Pin,((data & 0x04) ? GPIO_PIN_SET : GPIO_PIN_RESET));
-//	HAL_GPIO_WritePin(GPIOA, LCD_D3_Pin,((data & 0x08) ? GPIO_PIN_SET : GPIO_PIN_RESET));
-//	HAL_GPIO_WritePin(GPIOA, LCD_D4_Pin,((data & 0x10) ? GPIO_PIN_SET : GPIO_PIN_RESET));
-//	HAL_GPIO_WritePin(GPIOA, LCD_D5_Pin,((data & 0x20) ? GPIO_PIN_SET : GPIO_PIN_RESET));
-//	HAL_GPIO_WritePin(GPIOA, LCD_D6_Pin,((data & 0x40) ? GPIO_PIN_SET : GPIO_PIN_RESET));
-//	HAL_GPIO_WritePin(GPIOA, LCD_D7_Pin,((data & 0x80) ? GPIO_PIN_SET : GPIO_PIN_RESET));
 	GPIOA->ODR=0X00|data;
 }
 
 void Split(uint32_t Odo_Value)
 {
-	Odo_Write[0]= Odo_Value & 0xFF;
-	Odo_Write[1]= (Odo_Value>>8) & 0xFF;
-	Odo_Write[2]= (Odo_Value>>16) & 0xFF;
+	data_Write[0]= Odo_Value & 0xFF;
+	data_Write[1]= (Odo_Value>>8) & 0xFF;
+	data_Write[2]= (Odo_Value>>16) & 0xFF;
 }
 /*
  * This function is used to merging data which is read from EEPROM
  * Merging individual byte of data and stored in a Structure
  */
-void Merge()
+
+
+void I2C_Write_EEPROM(uint32_t data_eeprom,uint8_t address)
 {
-	 Range.Odometer_Value= (Odo_Read[2] << 16) | (Odo_Read[1] << 8) | Odo_Read[0];
+   Split(data_eeprom);
+   EEPROM_Write(address, data_Write, sizeof(data_Write));//Write odo-meter data
 }
 
-void I2C_WriteRead_ODO(uint32_t odo_eeprom)
+int I2C_Read_EEPROM(uint8_t address)
 {
-   Split(odo_eeprom);
-   EEPROM_Write(0x20, Odo_Write, sizeof(Odo_Write));//Write odo-meter data
-   EEPROM_Read(0x20, Odo_Read, sizeof(Odo_Read));// Read odo-meter data
-   Merge();
-}
-
-void I2C_Read_ODO()
-{
-	EEPROM_Read(0x20, Odo_Read, sizeof(Odo_Read));
-	Merge();
-}
-
-void Calib_Write(uint16_t calib_value)
-{
-	calib_write[0]= calib_value & 0xFF;
-	calib_write[1]= (calib_value>>8) & 0xFF;
-	EEPROM_Write(0x30, calib_write, sizeof(calib_write));
-}
-
-void Calib_Read()
-{
-	EEPROM_Read(0x30, calib_read, sizeof(calib_read));
-	calib_reg=(calib_read[1] << 8) | calib_read[0];
+	EEPROM_Read(address, data_Read, sizeof(data_Read));
+	return((data_Read[2] << 16) | (data_Read[1] << 8) | (data_Read[0]));
 }
 
 /*
@@ -208,107 +180,144 @@ void EEPROM_Read(uint16_t address, uint8_t* data, uint16_t size)
 
 void battery_voltage()
 {
-	lcd_clear(7, 110, 12);
-	lcd_print_char(7, 104, "|");
-	lcd_print_digit_wos(7, 110, (BMS.Cumulative_Total_Voltage/100));
-	lcd_print_digit_wos(7, 116, (BMS.Cumulative_Total_Voltage/10)%10);
-	lcd_print_char(7, 122, "V");
+	lcd_clear(7, 0, 12);
+	lcd_print_digit_wos(7, 0, (BMS.Cumulative_Total_Voltage/100));
+	lcd_print_digit_wos(7, 6, (BMS.Cumulative_Total_Voltage/10)%10);
+	lcd_print_char(7, 12, "V");
 }
 
 void battery_current()
 {
-	lcd_clear(7, 0, 12);
-	lcd_print_char(7, 0, "|");
-	lcd_print_digit_wos(7, 6, (BMS.Current/100));
-	lcd_print_digit_wos(7, 12, (BMS.Current/10)%10);
-	lcd_print_char(7, 18, "A");
+	lcd_clear(7, 110, 12);
+	lcd_print_digit_wos(7, 110, (BMS.Current/100));
+	lcd_print_digit_wos(7, 116, (BMS.Current/10)%10);
+	lcd_print_char(7, 122, "A");
+}
+void battery_cycle()
+{
+	charge_cycle_print();
+	lcd_print_digit_wos(1, 0, (BMS.Cumulative_Charge/BMS.Battery_capacity)/1000);
+	lcd_print_digit_wos(1, 6, ((BMS.Cumulative_Charge/BMS.Battery_capacity)%1000)/100);
+	lcd_print_digit_wos(1, 12, ((((BMS.Cumulative_Charge/BMS.Battery_capacity)%1000)%100)/10));
+	lcd_print_digit_wos(1, 18, ((((BMS.Cumulative_Charge/BMS.Battery_capacity)%1000)%100)%10));
 }
 
 void battery_temp()
 {
-	if((BMS.SOC==0)||(BMS.SOC==0))
-		{
-		    lcd_print_char(0, 0, "|");
-			lcd_print_digit_wos(0, 6, 0);
-			lcd_print_digit_wos(0, 12, 0);
-			lcd_print_convert(0, 18, 0x03);
-			lcd_print_convert(0, 19, 0x03);
-			lcd_print_char(0, 21, "C");
-		}
+	if((BMS.Max_Temp==0)&&(BMS.Min_Temp==0))
+	{
+		lcd_print_digit(0, 0, BMS.Max_Temp);
+		lcd_print_convert(0, 12, 0x03);
+		lcd_print_convert(0, 13, 0x03);
+		lcd_print_char(0, 15, "C");
+	}
 	else
 	{
 		if(BMS.Max_Temp>50)
-		{
-			lcd_print_char(0, 0, "|");
-			lcd_print_digit(0, 6, ((BMS.Max_Temp)-40));
-			lcd_print_convert(0, 18, 0x03);
-			lcd_print_convert(0, 19, 0x03);
-			lcd_print_char(0, 21, "C");
-		}
-		if(BMS.Min_Temp<=50)
-		{
-			lcd_print_char(0, 0, "|");
-			lcd_print_digit(0, 6, ((BMS.Min_Temp)-40));
-			lcd_print_convert(0, 18, 0x03);
-			lcd_print_convert(0, 19, 0x03);
-			lcd_print_char(0, 21, "C");
-		}
+			{
+				lcd_print_digit(0, 0, ((BMS.Max_Temp)-40));
+				lcd_print_convert(0, 12, 0x03);
+				lcd_print_convert(0, 13, 0x03);
+				lcd_print_char(0, 15, "C");
+			}
+			if(BMS.Min_Temp<=50)// less tham 10 degree min temp will be printed
+			{
+				lcd_print_digit(0, 0, ((BMS.Min_Temp)-40));//
+				lcd_print_convert(0, 12, 0x03);
+				lcd_print_convert(0, 13, 0x03);
+				lcd_print_char(0, 15, "C");
+			}
+	}
+
+	// negative value should be printer draw (-)
+//	if(BMS.Min_Temp<=50)// less tham 10 degree min temp will be printed
+//	{
+//		lcd_print_digit(7, 0, ((BMS.Min_Temp)-40));//
+//		lcd_print_convert(7, 12, 0x03);
+//		lcd_print_convert(7, 13, 0x03);
+//		lcd_print_char(7, 15, "C");
+//	}
+
+	if(BMS.Max_Temp>95)
+	{
+		Battery_high_Temp=1;
+	}
+
+	if(BMS.Max_Temp<90)
+	{
+		Battery_high_Temp=0;
 	}
 }
 
 void battery_soc()
 {
-	//BMS.SOC=BMS.SOC-((BMS.SOC-1000)+((BMS.SOC-1000)*(15/100)));
+	Reserved_SOC=(int)1000.0-((1000.0-BMS.SOC)*(100.0/85.0));
 
-	if(BMS.SOC==1000)
-	{
-		lcd_clear(0, 98, 29);
-		lcd_print_char(0, 98, "|");
-		lcd_print_digit_wos(0, 104, 1);
-		lcd_print_digit_wos(0, 110, 0);
-		lcd_print_digit_wos(0, 116, 0);
-		lcd_print_char(0, 122, "%");
+	if(Reserved_SOC==1000){
+		lcd_clear(7, 98, 29);
+		lcd_print_digit_wos(7, 104, 1);
+		lcd_print_digit_wos(7, 110, 0);
+		lcd_print_digit_wos(7, 116, 0);
+		lcd_print_char(7, 122, "%");
 	}
 	else{
-		lcd_clear(0, 98, 29);
-		lcd_print_char(0, 104, "|");
-		lcd_print_digit_wos(0, 110, (BMS.SOC/100));
-		lcd_print_digit_wos(0, 116, (BMS.SOC/10)%10);
-		lcd_print_char(0, 122, "%");
+		lcd_clear(7, 98, 29);
+		lcd_print_digit_wos(7, 110, (Reserved_SOC/100));
+		lcd_print_digit_wos(7, 116, (Reserved_SOC/10)%10);
+		lcd_print_char(7, 122, "%");
 	}
 }
-
+uint8_t start_inc=0;uint8_t Reverse_status=0;uint16_t DTE=0;
 void Gear_Status()
 {
-uint8_t Gear_State=0;
-GPIOA->CRL=0X88888888;
-HAL_GPIO_WritePin(GPIOB, check_led_Pin, RESET);
-HAL_Delay(50);
-	if(HAL_GPIO_ReadPin(GPIOA, LCD_D0_Pin)==0) //PARKING
-	{
-		 danger_icon();
-	}
-	else
-	{
-		danger_clear();
-	}
+	uint8_t Gear_State=0;
+	GPIOA->CRL=0X88888888;
+	GPIOA->ODR|=0XFF;
+	HAL_GPIO_WritePin(GPIOB, check_led_Pin, RESET);
+	HAL_Delay(50);
+//	if(HAL_GPIO_ReadPin(GPIOA, LCD_D4_Pin)==0) //PARKING
+//		{danger_icon();}
+//	else
+//		{danger_clear();}
 
 	if(HAL_GPIO_ReadPin(GPIOA, LCD_D1_Pin)==1)
-	{
-		Gear_State=5;// REVERSE
-	}
-	else{
-		if((HAL_GPIO_ReadPin(GPIOA, LCD_D2_Pin)==1)&&((HAL_GPIO_ReadPin(GPIOA, LCD_D3_Pin)==0)))
-			{Gear_State=1;}
-		if((HAL_GPIO_ReadPin(GPIOA, LCD_D2_Pin)==0)&&((HAL_GPIO_ReadPin(GPIOA, LCD_D3_Pin)==0)))
-			{Gear_State=2;}
-		if((HAL_GPIO_ReadPin(GPIOA, LCD_D2_Pin)==0)&&((HAL_GPIO_ReadPin(GPIOA, LCD_D3_Pin)==1)))
-			{Gear_State=3;}
-    }
-	 gear_status_print(Gear_State);
+		{
+			Gear_State=0;// REVERSE
+			//Reverse_status=1;
+		}
+	else
+		{
+			Reverse_status=0;
+			if((HAL_GPIO_ReadPin(GPIOA, LCD_D2_Pin)==1)&&((HAL_GPIO_ReadPin(GPIOA, LCD_D3_Pin)==0)))
+				{
+					Gear_State=1;
+					DTE=(Reserved_SOC*130)/100;
+				}
+			if((HAL_GPIO_ReadPin(GPIOA, LCD_D2_Pin)==0)&&((HAL_GPIO_ReadPin(GPIOA, LCD_D3_Pin)==0)))
+				{
+					Gear_State=2;
+					DTE=(Reserved_SOC*100)/100;
+				}
+			if((HAL_GPIO_ReadPin(GPIOA, LCD_D2_Pin)==0)&&((HAL_GPIO_ReadPin(GPIOA, LCD_D3_Pin)==1)))
+				{
+					Gear_State=3;
+					DTE=(Reserved_SOC*70)/100;
+				}
+		}
+
+	 if((HAL_GPIO_ReadPin(GPIOA, LCD_D5_Pin)==RESET))
+		{
+			 start_inc++;
+			 if(start_inc>=3)
+			 {
+				start_inc=1;
+			 }
+			 I2C_Write_EEPROM(start_inc, LAST_STATE_ADDRESS_EEPROM);
+		}
 	 GPIOA->CRL=0X22222222;
-	 HAL_GPIO_WritePin(GPIOB, check_led_Pin, SET);
 	 HAL_Delay(50);
+	 gear_status_print(Gear_State);
+	 HAL_GPIO_WritePin(GPIOB, check_led_Pin, SET);
 }
 
 void BMS_CAN()//Transmitter function
@@ -319,12 +328,12 @@ void BMS_CAN()//Transmitter function
 		TxHeader.IDE = CAN_ID_EXT; // Identifier Extension
 		TxHeader.RTR = CAN_RTR_DATA;// Remote Transmission Request bit, here send data frame
 		TxHeader.DLC = 8;//Data length code
-		Transmit_Data[0]=0x00;//Data
-	   if(HAL_CAN_AddTxMessage(&hcan, &TxHeader, &Transmit_Data[0], &TxMailBox) != HAL_OK)//Adding data to the mailbox for transmitting
+		Transmit_Data[Tx_count]=0x00;//Data
+	   if(HAL_CAN_AddTxMessage(&hcan, &TxHeader, &Transmit_Data[Tx_count], &TxMailBox) != HAL_OK)//Adding data to the mailbox for transmitting
 		  {
-		   Error_Handler();
+		   //Error_Handler();
 		  }
-	  HAL_Delay(25);
+	  HAL_Delay(50);
 	  }
 	Tx_count=0;
 }
@@ -334,149 +343,79 @@ void BMS_CAN()//Transmitter function
 // * Received Identifier stored in a temporary variable for passing arguments to a function to process the data
 //
 
-uint32_t last_range; uint8_t last_soc;
+//uint32_t last_range; uint8_t last_soc;
+//uint16_t DTE=0,last_SOC,last_data=1,last_ODO=0;
+//void distance_to_emt()
+//{
+//	if(last_data)
+//	{
+//		last_ODO=Range.Odometer_Value+10;
+//		last_SOC=Reserved_SOC;
+//		last_data=0;
+//	}
+//	if(Range.Odometer_Value>=last_ODO)
+//	{
+//		last_data=1;
+//		DTE=(Reserved_SOC)/(last_SOC-Reserved_SOC);
+//	}
+//}
 
-uint16_t DTE=0,last_SOC,last_data=1,last_ODO=0;
-void distance_to_emt()
-{
-	if(last_data)
-	{
-		last_ODO=Range.Odometer_Value+10;
-		last_SOC=BMS.SOC;
-		last_data=0;
-	}
-
-	if(Range.Odometer_Value>=last_ODO)
-	{
-		last_data=1;
-		DTE=(BMS.SOC)/(last_SOC-BMS.SOC);
-	}
-	uint8_t first=DTE/100;
-	uint8_t second=((DTE%100)/10);
-	uint8_t third=((DTE%100)%10);
-	lcd_print_digit_wos(7, 0,first);
-	lcd_print_digit_wos(7, 6,second);
-	lcd_print_digit_wos(7, 12,third);
-	lcd_print_char(7, 18, "km");
-}
-
-void lcd_into1()
-{
-	lcd_print_char(1, 96, "BCC");
-	lcd_print_digit_wos(2, 93, (BMS.Cumulative_Charge/BMS.Battery_capacity)/1000);
-	lcd_print_digit_wos(2, 99, ((BMS.Cumulative_Charge/BMS.Battery_capacity)%1000)/100);
-	lcd_print_digit_wos(2, 105, ((((BMS.Cumulative_Charge/BMS.Battery_capacity)%1000)%100)/10));
-	lcd_print_digit_wos(2, 111, ((((BMS.Cumulative_Charge/BMS.Battery_capacity)%1000)%100)%10));
-
-	lcd_print_char(1, 12, "YOU SAVED");
-	lcd_print_char(2, 17, "Rs");
-
-	lcd_print_digit_wos(2, 29, (Range.Odometer_Value*2)/1000);
-	lcd_print_digit_wos(2, 29, (Range.Odometer_Value*2)/1000);
-	lcd_print_digit_wos(2, 29, (Range.Odometer_Value*2)/1000);
-	lcd_print_digit_wos(2, 35, ((Range.Odometer_Value*2)%1000)/100);
-	lcd_print_digit_wos(2, 41, ((((Range.Odometer_Value*2)%1000)%100)/10));
-	lcd_print_digit_wos(2, 47, ((((Range.Odometer_Value*2)%1000)%100)%10));
-
-	lcd_print_char(5, 40, "PLEASE   WEAR");
-	lcd_print_char(6, 52, "HELMET");
-	uint16_t temp=0;
-//	for(uint8_t y_axsis=0;y_axsis<=4;y_axsis++)
+//uint16_t timer_sec_1=0;
+//uint8_t last_soc_status=1,TTF_hr,TTF_min;
+//uint16_t last_soc_ttf=0;
+//uint8_t waittime_ttf=0;
+//void TTf_staus()
+//{
+//	if(last_soc_status)
+//	{
+//		last_soc_ttf=Reserved_SOC+10;
+//		last_soc_status=0;
+//	}
+//	else
+//	{
+//		if(last_soc_ttf<=Reserved_SOC)
 //		{
-//			for(uint8_t x_axsis=0;x_axsis<=29;x_axsis++)
-//			{
-//				lcd_print_convert(y_axsis+4,x_axsis+5,helmet_icon[temp++]);
-//			}
+//			uint32_t TTF_sec=timer_sec_1*((1000-Reserved_SOC)/10);
+//			timer_sec_1=0;
+//			TTF_min=(TTF_sec%3600)/60;
+//			TTF_hr=TTF_sec/3600;
+//			last_soc_status=1;
 //		}
-	 lcd_invert_process();
-	 lcd_print_ram_1();
-}
-
-uint16_t timer_sec_1=0;
-uint8_t last_soc_status=1,TTF_hr,TTF_min;
-uint16_t last_soc_ttf=0;
-uint8_t waittime_ttf=0;
-void TTf_staus()
-{
-	if(last_soc_status)
-	{
-		last_soc_ttf=BMS.SOC+10;
-		last_soc_status=0;
-	}
-	else
-	{
-		if(last_soc_ttf<=BMS.SOC)
-		{
-			uint32_t TTF_sec=timer_sec_1*((1000-BMS.SOC)/10);
-			timer_sec_1=0;
-			TTF_min=(TTF_sec%3600)/60;
-			TTF_hr=TTF_sec/3600;
-			last_soc_status=1;
-		}
-		lcd_print_digit_wos(0, 46,TTF_hr/10);
-		lcd_print_digit_wos(0, 52,TTF_hr%10);
-		lcd_print_char(0, 58, "h");
-		lcd_print_digit_wos(0, 65,TTF_min/10);
-		lcd_print_digit_wos(0, 71,TTF_min%10);
-		lcd_print_char(0, 77, "m");
-	}
-}
+//		lcd_print_digit_wos(5, 46,TTF_hr/10);
+//		lcd_print_digit_wos(5, 52,TTF_hr%10);
+//		lcd_print_char(5, 58, "h");
+//		lcd_print_digit_wos(5, 65,TTF_min/10);
+//		lcd_print_digit_wos(5, 71,TTF_min%10);
+//		lcd_print_char(5, 77, "m");
+//		ttf_print();
+//	}
+//}
 
 uint8_t temp_bat=0;
 void battery_bar_soc()
 {
-	if(BMS.Charger_State==1)
-	{
-		temp_bat++;
-		if(temp_bat==6){temp_bat=BMS.SOC/200;}
-		if(BMS.SOC==1000)
-		{
-			battery_bar_print(temp_bat);
-		}
-		if((BMS.SOC>=800)&&(BMS.SOC<=999))
-		{
-			battery_bar_print(temp_bat);
-		}
-		else if((BMS.SOC>=600)&&(BMS.SOC<=799))
-		{
-			battery_bar_print(temp_bat);
-		}
-		else if((BMS.SOC>=400)&&(BMS.SOC<=599))
-		{
-			battery_bar_print(temp_bat);
-		}
-		else if((BMS.SOC>=200)&&(BMS.SOC<=399))
-		{
-			battery_bar_print(temp_bat);
-		}
-		else if((BMS.SOC>=0)&&(BMS.SOC<=199))
-		{
-			battery_bar_print(temp_bat);
-		}
-	}
-	else
-	{
-		if((BMS.SOC>=950)&&(BMS.SOC<=1000))
+
+		if((Reserved_SOC>=950)&&(Reserved_SOC<=1000))
 		{
 			battery_bar_print(5);
 		}
-		else if((BMS.SOC>=800)&&(BMS.SOC<=949))
+		else if((Reserved_SOC>=800)&&(Reserved_SOC<=949))
 		{
 			battery_bar_print(4);
 		}
-		else if((BMS.SOC>=600)&&(BMS.SOC<=799))
+		else if((Reserved_SOC>=600)&&(Reserved_SOC<=799))
 		{
 			battery_bar_print(3);
 		}
-		else if((BMS.SOC>=400)&&(BMS.SOC<=599))
+		else if((Reserved_SOC>=400)&&(Reserved_SOC<=599))
 		{
 			battery_bar_print(2);
 		}
-		else if((BMS.SOC>=200)&&(BMS.SOC<=399))
+		else if((Reserved_SOC>=200)&&(Reserved_SOC<=399))
 		{
 			battery_bar_print(1);
 		}
-		else if((BMS.SOC>=0)&&(BMS.SOC<=199))
+		else if((Reserved_SOC>=0)&&(Reserved_SOC<=199))
 		{
 			bat_icon_toogle=!bat_icon_toogle;
 
@@ -485,86 +424,132 @@ void battery_bar_soc()
 				battery_bar_print(0);
 			}
 			else{
-				lcd_clear(1, 112, 13);
-				lcd_clear(2, 112, 13);
-				lcd_clear(3, 112, 13);
-				lcd_clear(4, 112, 13);
-				lcd_clear(5, 112, 13);
-				lcd_clear(6, 112, 13);
+				line_print();
 			}
 		}
 		else
 		{
 			battery_bar_print(0);
 		}
-	}
 }
 
 void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan)//Receiver Interrupt Function
 {
  	if(HAL_CAN_GetRxMessage(hcan, CAN_RX_FIFO0, &RxHeader, Received_Data) == HAL_OK)//Receiving data through FIFO
- 	{ 	Rx_Id = RxHeader.ExtId;
+ 	{
+ 		Rx_Id = RxHeader.ExtId;
  		merge(Rx_Id);// Implementation of merging and splitting received BMS data
  	}
 }
-
-void time_print()
-{
+//uint8_t tog=1;
+//void time_print()
+//{
+//	tog=(!tog);
 //	if(BMS.Charger_State==1)
 //	{
 //		HAL_RTC_GetTime(&hrtc, &sTime, RTC_FORMAT_BIN);
 //		lcd_print_digit_wos(0, 102,(sTime.Hours/10));
 //		lcd_print_digit_wos(0, 108,(sTime.Hours%10));
-//		lcd_print_convert(0, 114, 0x22);
+//		(tog)?lcd_print_convert(0, 114, 0x44):lcd_print_convert(0, 114, 0x00);
+//		lcd_print_convert(0, 114, 0x44);
 //		lcd_print_digit_wos(0,116,sTime.Minutes/10);
 //		lcd_print_digit_wos(0, 122,sTime.Minutes%10);
 //	}
 //	else
 //	{
 //		HAL_RTC_GetTime(&hrtc, &sTime, RTC_FORMAT_BIN);
-//		lcd_print_digit_wos(7, 102,(sTime.Hours/10));
-//		lcd_print_digit_wos(7, 108,(sTime.Hours%10));
-//		lcd_print_convert(7, 114, 0x22);
-//		lcd_print_digit_wos(7,116,sTime.Minutes/10);
-//		lcd_print_digit_wos(7, 122,sTime.Minutes%10);
+//		lcd_print_digit_wos(0, 0,(sTime.Hours/10));
+//		lcd_print_digit_wos(0, 6,(sTime.Hours%10));
+//		(tog)?lcd_print_convert(0, 12, 0x44):lcd_print_convert(0, 114, 0x00);
+//		lcd_print_digit_wos(0,14,sTime.Minutes/10);
+//		lcd_print_digit_wos(0, 20,sTime.Minutes%10);
+//		print_am();
 //	}
-}
+//}
 
-uint16_t dist_mtr=0;uint16_t meter_count=0; uint32_t km_count=0;uint16_t pluse_count=0;
-uint8_t pin_state=1; uint8_t bike_speed_temp=0;
+uint16_t pluse_count=0;
+
 void ODO_calculation()
 {
 	uint8_t bike_speed=((speed_count*360)/calib_reg);
     lcd_speed(bike_speed);
+
 	if(after_sec)
 	{
 		pluse_count+=speed_count;
 		after_sec=0;
 	}
+
 	if(pluse_count>=calib_reg)
 	{
 		pluse_count=0;
-		meter_count++;
 		Range.Odometer_Value++;
 		Range.Trip_value++;
-		I2C_WriteRead_ODO(Range.Odometer_Value);
+		I2C_Write_EEPROM(Range.Odometer_Value,ODO_ADDRESS_EEPROM);
+		I2C_Write_EEPROM(Range.Trip_value,TRIP_ADDRESS_EEPROM);
 	}
-	uint8_t first=Range.Odometer_Value/100000;
-	uint8_t second=((Range.Odometer_Value%100000)/10000);
-	uint8_t third=(((Range.Odometer_Value%100000)%10000)/1000);
-	uint8_t fourth=((((Range.Odometer_Value%100000)%10000)%1000)/100);
-	uint8_t fifth=(((((Range.Odometer_Value%100000)%10000)%1000)%100)/10);
-	uint8_t sixth=(((((Range.Odometer_Value%100000)%10000)%1000)%100)%10);
 
-	lcd_clear(0, 40, 51);
-	lcd_print_digit_wos(0, 40,first);
-	lcd_print_digit_wos(0, 46,second);
-	lcd_print_digit_wos(0, 52,third);
-	lcd_print_digit_wos(0, 58,fourth);
-	lcd_print_digit_wos(0, 64,fifth);
-	lcd_print_convert(0, 70, 0x40);
-	lcd_print_digit_wos(0, 72,sixth);
-	lcd_print_char(0,79, "km");
+	if(Range.Trip_value>=10000)
+	{
+		Range.Trip_value=0;
+		I2C_Write_EEPROM(Range.Trip_value,TRIP_ADDRESS_EEPROM);
+	}
+		lcd_clear(0, 96, 51);
+		uint8_t first=DTE/100;
+		uint8_t second=((DTE%100)/10);
+		uint8_t third=((DTE%100)%10);
+		dte_icon_print();
+		lcd_print_digit_wos(0, 98,first);
+		lcd_print_digit_wos(0, 104,second);
+		lcd_print_digit_wos(0, 110,third);
+		lcd_print_char(0, 116, "km");
+switch(start_inc)
+	{
+	case 1:
+		{
+			uint8_t first = (Range.Odometer_Value / 1000000);
+			uint8_t second = ((Range.Odometer_Value % 1000000) / 100000);
+			uint8_t third = (((Range.Odometer_Value % 1000000) % 100000) / 10000);
+			uint8_t fourth = ((((Range.Odometer_Value % 1000000) % 100000) % 10000) / 1000);
+			uint8_t fifth = (((((Range.Odometer_Value % 1000000) % 100000) % 10000) % 1000) / 100);
+			uint8_t sixth = ((((((Range.Odometer_Value % 1000000) % 100000) % 10000) % 1000) % 100) / 10);
+			uint8_t seventh = (((((((Range.Odometer_Value % 1000000) % 100000) % 10000) % 1000) % 100) % 10));
+			lcd_clear(5, 32, 64);
+			odo_icon_print();
+			lcd_print_digit_wos(5, 50,first);
+			lcd_print_digit_wos(5, 56,second);
+			lcd_print_digit_wos(5, 62,third);
+			lcd_print_digit_wos(5, 68,fourth);
+			lcd_print_digit_wos(5, 74,fifth);
+			lcd_print_digit_wos(5, 80,sixth);
+			lcd_print_char(5,89, "km");
+			break;
+		}
+	case 2:
+		{
+			uint8_t second=((Range.Trip_value%100000)/10000);
+			uint8_t third=(((Range.Trip_value%100000)%10000)/1000);
+			uint8_t fourth=((((Range.Trip_value%100000)%10000)%1000)/100);
+			uint8_t fifth=(((((Range.Trip_value%100000)%10000)%1000)%100)/10);
+			uint8_t sixth=(((((Range.Trip_value%100000)%10000)%1000)%100)%10);
+			lcd_clear(5, 40, 51);
+			trp_icon_print();
+			lcd_print_digit_wos(5, 52,second);
+			lcd_print_digit_wos(5, 58,third);
+			lcd_print_digit_wos(5, 64,fourth);
+			lcd_print_digit_wos(5, 70,fifth);
+			lcd_print_convert(5, 76, 0x40);
+			lcd_print_digit_wos(5, 78,sixth);
+			lcd_print_char(5,84, "km");
+			break;
+		}
+
+	default:
+		{
+			start_inc=1;
+			break;
+		}
+	}
 }
 
 /* USER CODE END 0 */
@@ -601,18 +586,17 @@ int main(void)
   MX_TIM2_Init();
   MX_I2C1_Init();
   /* USER CODE BEGIN 2 */
-  HAL_TIM_Base_Start_IT(&htim2); // Timer2 Interrupt Start
+
   HAL_I2C_Init(&hi2c1);
-  lcd_init();
   HAL_CAN_Start(&hcan);// CAN protocol enable function
   HAL_CAN_ActivateNotification(&hcan,CAN_IT_RX_FIFO0_MSG_PENDING); // Interrupt activation for Receiving data ,whenever data is received in FIFO, this function will get triggered and goes to receiver interrupt function
+  HAL_TIM_Base_Start_IT(&htim2); // Timer2 Interrupt Start
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
-
-	lcd_into();
-	 BMS_CAN();// read data from the BMS through the can protocol
+     lcd_init();
+	 lcd_into();
 	 HAL_Delay(1000);
 	 lcd_clear(0, 0, 127);
 	 lcd_clear(1, 0, 127);
@@ -622,39 +606,26 @@ int main(void)
 	 lcd_clear(5, 0, 127);
 	 lcd_clear(6, 0, 127);
 	 lcd_clear(7, 0, 127);
-	 BMS_CAN();// read data from the BMS through the can protocol
 
-	//Range.Odometer_Value=0;
-	//I2C_WriteRead_ODO(Range.Odometer_Value);
-	I2C_Read_ODO();
-	//Calib_Write(calib_reg);
-	Calib_Read();
-	 lcd_into1();
-	 HAL_Delay(1000);
-	first_time=1;
-while(1);
-  while (1)
+//	 I2C_Write_EEPROM(0,ODO_ADDRESS_EEPROM);
+//	 I2C_Write_EEPROM(0,TRIP_ADDRESS_EEPROM);
+//   I2C_Write_EEPROM(1,LAST_STATE_ADDRESS_EEPROM);
+	 Range.Odometer_Value=I2C_Read_EEPROM(ODO_ADDRESS_EEPROM);
+	 Range.Trip_value=I2C_Read_EEPROM(TRIP_ADDRESS_EEPROM);
+	 start_inc=I2C_Read_EEPROM(LAST_STATE_ADDRESS_EEPROM);
+
+	 first_time=1;
+	 uint8_t tog=0;
+
+
+ while(1)
   {
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
   if(print_state)
   {
-	  print_state=0;
-	  if(first_time)
-	  {
-		 first_time=0;
-		 lcd_clear(0, 0, 127);
-		 lcd_clear(1, 0, 127);
-		 lcd_clear(2, 0, 127);
-		 lcd_clear(3, 0, 127);
-		 lcd_clear(4, 0, 127);
-		 lcd_clear(5, 0, 127);
-		 lcd_clear(6, 0, 127);
-		 lcd_clear(7, 0, 127);
-	  }
-	  if(BMS.Charger_State==1)
-	  {
+	  	print_state=0;
 		BMS_CAN();// read data from the BMS through the can protocol
 		lcd_clear(0, 0, 127);
 		lcd_clear(1, 0, 127);
@@ -664,39 +635,13 @@ while(1);
 		lcd_clear(5, 0, 127);
 		lcd_clear(6, 0, 127);
 		lcd_clear(7, 0, 127);
-		battery_temp();
-		time_print();
-		battery_voltage();
-		TTf_staus();
-		battery_charge_soc(BMS.SOC);
-		battery_current();
-		battery_bar_soc();
-		Lcd_cmd(0xA2); // ADC select
-		Lcd_cmd(0xA0);// SHL select
-		Lcd_cmd(0xC0);// Initial display line
-		Lcd_cmd(0x40);
-		lcd_invert_process();
-		lcd_print_ram_1();
-	  }
-	  else
-	  {
-		BMS_CAN();// read data from the BMS through the can protocol
-		lcd_clear(0, 0, 127);
-		lcd_clear(1, 0, 127);
-		lcd_clear(2, 0, 127);
-		lcd_clear(3, 0, 127);
-		lcd_clear(4, 0, 127);
-		lcd_clear(5, 0, 127);
-		lcd_clear(6, 0, 127);
-		lcd_clear(7, 0, 127);
-		waittime_ttf=10;
-		distance_to_emt();
 		battery_temp();
 		battery_soc();
-		time_print();
+		line_print();
 		battery_bar_soc();
 		ODO_calculation();
 		Gear_Status();
+		battery_voltage();
 		Lcd_cmd(0xA2); // ADC select
 		Lcd_cmd(0xA0);// SHL select
 		Lcd_cmd(0xC0);// Initial display line
@@ -704,8 +649,7 @@ while(1);
 		lcd_invert_process();
 		lcd_print_ram_1();
 	  }
-  }
- }
+  	}
   /* USER CODE END 3 */
 }
 
@@ -899,7 +843,8 @@ static void MX_GPIO_Init(void)
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOA, LCD_D0_Pin|LCD_D1_Pin|LCD_D2_Pin|LCD_D3_Pin
-                          |LCD_D4_Pin|LCD_D5_Pin|LCD_D6_Pin|LCD_D7_Pin, GPIO_PIN_RESET);
+                          |LCD_D4_Pin|LCD_D5_Pin|LCD_D6_Pin|LCD_D7_Pin
+                          |Buzzer_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOB, lcd_adr_Pin|LCD_RD_Pin|lcd_reset_Pin|lcd_chip_sel_Pin
@@ -912,9 +857,11 @@ static void MX_GPIO_Init(void)
   HAL_GPIO_Init(speed_sensor_GPIO_Port, &GPIO_InitStruct);
 
   /*Configure GPIO pins : LCD_D0_Pin LCD_D1_Pin LCD_D2_Pin LCD_D3_Pin
-                           LCD_D4_Pin LCD_D5_Pin LCD_D6_Pin LCD_D7_Pin */
+                           LCD_D4_Pin LCD_D5_Pin LCD_D6_Pin LCD_D7_Pin
+                           Buzzer_Pin */
   GPIO_InitStruct.Pin = LCD_D0_Pin|LCD_D1_Pin|LCD_D2_Pin|LCD_D3_Pin
-                          |LCD_D4_Pin|LCD_D5_Pin|LCD_D6_Pin|LCD_D7_Pin;
+                          |LCD_D4_Pin|LCD_D5_Pin|LCD_D6_Pin|LCD_D7_Pin
+                          |Buzzer_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
@@ -938,7 +885,7 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
-uint16_t speed_time=0,speed_count_avg=0,ttf_delay=0,sec=0;
+uint16_t speed_time=0,speed_count_avg=0,ttf_delay=0,sec=0,rev_buzzr_delay=0,temp_buzzr_delay=0;
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) // To create a every 100us timer Interrupt. prescalar value is 100 and ARR(Auto Reload Register) = 72.
 {
   if (htim->Instance == TIM2)
@@ -953,12 +900,23 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) // To create a every
 	 {
 		 print_delay=m_sec+1000;
 		 print_state=1;
-		 timer_sec_1++;
-		 speed_count_temp=100;
 		 speed_count=speed_count_temp;
 		 after_sec=1;
 		 speed_count_temp=0;
 	 }
+
+	 if(m_sec==rev_buzzr_delay){
+		 rev_buzzr_delay=m_sec+500;
+		 if(Reverse_status==1){
+			 HAL_GPIO_TogglePin(GPIOA, Buzzer_Pin);
+		 }
+	 }
+	 if(m_sec==temp_buzzr_delay){
+		 temp_buzzr_delay=m_sec+100;
+		 if(Battery_high_Temp==1){
+			 HAL_GPIO_TogglePin(GPIOA, Buzzer_Pin);
+		 }
+	}
   }
 }
 
@@ -983,7 +941,7 @@ void Error_Handler(void)
   __disable_irq();
   while (1)
   {
-
+	    HAL_NVIC_SystemReset();
   }
   /* USER CODE END Error_Handler_Debug */
 }

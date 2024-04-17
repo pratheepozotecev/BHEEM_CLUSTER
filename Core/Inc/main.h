@@ -86,12 +86,14 @@ void Error_Handler(void);
 #define lcd_chip_sel_GPIO_Port GPIOB
 #define check_led_Pin GPIO_PIN_11
 #define check_led_GPIO_Port GPIOB
+#define Buzzer_Pin GPIO_PIN_8
+#define Buzzer_GPIO_Port GPIOA
 
 /* USER CODE BEGIN Private defines */
 
-
-
-
+#define ODO_ADDRESS_EEPROM 0X20
+#define TRIP_ADDRESS_EEPROM 0X30
+#define LAST_STATE_ADDRESS_EEPROM 0X40
 /* USER CODE END Private defines */
 
 #ifdef __cplusplus

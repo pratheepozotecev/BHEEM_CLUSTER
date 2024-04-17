@@ -7,7 +7,6 @@
 
 #include "main.h"
 #include "ST7565p.H"
-//extern enum alp{A=1,B,C,D,E,F,G,H,I,J,K,L,M,N,O,P,Q,R,S,T,W,X,Y,Z};
 uint8_t lcd_temp_ram[8][128];
 uint8_t lcd_temp_ram_1[8][128];
 
@@ -70,7 +69,7 @@ void lcd_init(){
 	  HAL_Delay(50);
 
 	  // set lcd operating voltage (regulator resistor, ref voltage resistor)
-	  Lcd_cmd(CMD_SET_RESISTOR_RATIO | 0x4);
+	  Lcd_cmd(CMD_SET_RESISTOR_RATIO | 0x4);// contrast CHANGE OPTION USING EEPROM
 
 	  // initial display line
 	  // set page address
@@ -80,7 +79,7 @@ void lcd_init(){
 	  // set up a bounding box for screen updates
 
 	  Lcd_cmd(0xAF);    //Display on
-	  Lcd_cmd(0XA4);
+	  Lcd_cmd(0XA4);  // Display clear all
 	}
 
 void lcd_x_axis(uint8_t value){
@@ -92,12 +91,12 @@ void lcd_x_axis(uint8_t value){
 void lcd_invert_process()
 {
 	for(int y_axsis=0;y_axsis<=7;y_axsis++){
-			uint8_t temp_x_axsis=0;
-			for(int x_axsis=127;x_axsis>=0;x_axsis--)
-			{
-				lcd_temp_ram_1[y_axsis][temp_x_axsis++]=(lcd_temp_ram[y_axsis][x_axsis]);
-			}
+		uint8_t temp_x_axsis=0;
+		for(int x_axsis=127;x_axsis>=0;x_axsis--)
+		{
+			lcd_temp_ram_1[y_axsis][temp_x_axsis++]=(lcd_temp_ram[y_axsis][x_axsis]);
 		}
+	}
 }
 
 void lcd_speed(uint8_t num){
@@ -107,28 +106,54 @@ void lcd_speed(uint8_t num){
     third_num=((num%100)%10);
     value_num=0;
 
-    for(x_axis=0;x_axis<20;x_axis++)
-    {
-        for(y_axis=0;y_axis<5;y_axis++)
-        {
-            lcd_print_convert((2+(y_axis)),(x_axis+41),number[second_num][value_num]);
-            value_num++;
-        }
-    }
-        value_num=0;
-    for(x_axis=0;x_axis<20;x_axis++)
-    {
-        for(y_axis=0;y_axis<5;y_axis++)
-        {
-            lcd_print_convert((2+(y_axis)),(x_axis+63),number[third_num][value_num]);
-            value_num++;
-        }
-    }
+//    for(x_axis=0;x_axis<20;x_axis++)
+//    {
+//        for(y_axis=0;y_axis<5;y_axis++)
+//        {
+//            lcd_print_convert((2+(y_axis)),(x_axis+41),number[second_num][value_num]);
+//            value_num++;
+//        }
+//    }
+//        value_num=0;
+//    for(x_axis=0;x_axis<20;x_axis++)
+//    {
+//        for(y_axis=0;y_axis<5;y_axis++)
+//        {
+//            lcd_print_convert((2+(y_axis)),(x_axis+63),number[third_num][value_num]);
+//            value_num++;
+//        }
+//    }
+//
 
-    lcd_print_char(6, 85, "km");
-    lcd_print_char(6,97, "{");
 
-    lcd_print_char(6,103, "h");
+   for(y_axis=0;y_axis<4;y_axis++)
+	{
+		for(x_axis=0;x_axis<16;x_axis++)
+		{
+			lcd_print_convert((0+(y_axis)),(x_axis+46),(font16x32_digits[second_num][value_num]));
+			value_num++;
+		}
+	}
+   value_num=0;
+    for(y_axis=0;y_axis<4;y_axis++)
+     {
+         for(x_axis=0;x_axis<16;x_axis++)
+         {
+
+             lcd_print_convert((0+(y_axis)),(x_axis+64),(font16x32_digits[third_num][value_num]));
+             value_num++;
+         }
+     }
+    value_num=0;
+    for(y_axis=0;y_axis<1;y_axis++)
+        {
+            for(x_axis=0;x_axis<21;x_axis++)
+            {
+
+                lcd_print_convert((4+(y_axis)),(x_axis+52),kmph[value_num]);
+                value_num++;
+            }
+        }
 }
 
 void battery_charge_soc(uint16_t num){
@@ -150,29 +175,31 @@ void battery_charge_soc(uint16_t num){
 		   }
 		value_num=0;
     }
-    for(x_axis=0;x_axis<20;x_axis++)
-    {
-        for(y_axis=0;y_axis<5;y_axis++)
-        {
-            lcd_print_convert((2+(y_axis)),(x_axis+41),number[second_num][value_num]);
-            value_num++;
-        }
-    }
+
+    for(y_axis=0;y_axis<4;y_axis++)
+ 	{
+ 		for(x_axis=0;x_axis<16;x_axis++)
+ 		{
+ 			lcd_print_convert((0+(y_axis)),(x_axis+46),(font16x32_digits[second_num][value_num]));
+ 			value_num++;
+ 		}
+ 	}
     value_num=0;
-    for(x_axis=0;x_axis<20;x_axis++)
-    {
-        for(y_axis=0;y_axis<5;y_axis++)
-        {
-            lcd_print_convert((2+(y_axis)),(x_axis+63),number[third_num][value_num]);
-            value_num++;
-        }
-    }
-    value_num=0;
+     for(y_axis=0;y_axis<4;y_axis++)
+      {
+          for(x_axis=0;x_axis<16;x_axis++)
+          {
+
+              lcd_print_convert((0+(y_axis)),(x_axis+64),(font16x32_digits[third_num][value_num]));
+              value_num++;
+          }
+      }
+     value_num=0;
 	 for(x_axis=0;x_axis<9;x_axis++)
 	 {
 		 for(y_axis=0;y_axis<2;y_axis++)
 		 {
-			 lcd_print_convert((5 +(y_axis)),(x_axis+86),persentage_big[value_num]);
+			 lcd_print_convert((2 +(y_axis)),(x_axis+80),persentage_big[value_num]);
 			 value_num++;
 		 }
 	 }
@@ -181,22 +208,34 @@ void battery_charge_soc(uint16_t num){
 void gear_status_print(uint8_t data_gear)
 {
 	uint8_t temp_gear=0;
-	 for(uint8_t y_axsis=3;y_axsis<=6;y_axsis++)
+	if(data_gear==0)
+	{
+		for(uint8_t y_axsis=3;y_axsis<4;y_axsis++)
 		{
-			for(uint8_t x_axsis=2;x_axsis<=19;x_axsis++)
+			for(uint8_t x_axsis=0;x_axsis<29;x_axsis++)
 			{
-				lcd_print_convert(y_axsis,x_axsis,gear_print[data_gear][temp_gear++]);
+				lcd_print_convert(y_axsis,x_axsis,reverse_icon[temp_gear++]);
 			}
 		}
-	 temp_gear=0;
+	}
+	else{
+
+	 for(uint8_t y_axsis=3;y_axsis<4;y_axsis++)
+		{
+			for(uint8_t x_axsis=0;x_axsis<21;x_axsis++)
+			{
+				lcd_print_convert(y_axsis,x_axsis,gear_print[data_gear-1][temp_gear++]);
+			}
+		}
+	}
 }
 
 void battery_bar_print(uint8_t battery_temp)
 {
-	uint16_t temp_bat=0;
-	 for(uint8_t y_axsis=1;y_axsis<=6;y_axsis++)
+	uint8_t temp_bat=0;
+	 for(uint8_t y_axsis=6;y_axsis<=7;y_axsis++)
 		{
-			for(uint8_t x_axsis=112;x_axsis<=124;x_axsis++)
+			for(uint8_t x_axsis=26;x_axsis<=102;x_axsis++)
 			{
 				lcd_print_convert(y_axsis,x_axsis,Battery_bar[battery_temp][temp_bat++]);
 			}
@@ -207,11 +246,11 @@ void battery_bar_print(uint8_t battery_temp)
 void service_icon()
 {
 	uint8_t temp_gear=0;
-	 for(uint8_t y_axsis=2;y_axsis<=3;y_axsis++)
+	 for(uint8_t y_axsis=1;y_axsis<=2;y_axsis++)
 		{
 			for(uint8_t x_axsis=0;x_axsis<=11;x_axsis++)
 			{
-			 lcd_print_convert(y_axsis,x_axsis,service_reminder_icon[temp_gear++]);
+				lcd_print_convert(y_axsis,110+ x_axsis,service_reminder_icon[temp_gear++]);
 			}
 		}
 	 temp_gear=0;
@@ -220,11 +259,11 @@ void service_icon()
 void danger_icon()
 {
 	uint8_t temp_gear=0;
-	 for(uint8_t y_axsis=2;y_axsis<=3;y_axsis++)
+	 for(uint8_t y_axsis=3;y_axsis<=4;y_axsis++)
 		{
-			for(uint8_t x_axsis=22;x_axsis<=35;x_axsis++)
+			for(uint8_t x_axsis=100;x_axsis<=113;x_axsis++)
 			{
-			 lcd_print_convert(y_axsis,x_axsis,danger[temp_gear++]);
+				lcd_print_convert(y_axsis,x_axsis,danger[temp_gear++]);
 			}
 		}
 	 temp_gear=0;
@@ -233,9 +272,9 @@ void danger_icon()
 void danger_clear()
 {
 	uint8_t temp_gear=0;
-	 for(uint8_t y_axsis=2;y_axsis<=3;y_axsis++)
+	 for(uint8_t y_axsis=3;y_axsis<=4;y_axsis++)
 		{
-			for(uint8_t x_axsis=22;x_axsis<=35;x_axsis++)
+			for(uint8_t x_axsis=100;x_axsis<=113;x_axsis++)
 			{
 			 lcd_print_convert(y_axsis,x_axsis,0x00);
 			}
@@ -243,8 +282,42 @@ void danger_clear()
 	 temp_gear=0;
 }
 
-uint8_t print_value_int=0;
+void odo_icon_print()
+{
+	uint8_t temp_gear=0;
+	for(uint8_t x_axsis=32;x_axsis<=47;x_axsis++)
+		{
+		 	 lcd_print_convert(5,x_axsis,ODO_ICON[temp_gear++]);
+		}
+}
 
+void dte_icon_print()
+{
+	uint8_t temp_gear=0;
+	for(uint8_t x_axsis=83;x_axsis<=97;x_axsis++)
+	{
+	 lcd_print_convert(0,x_axsis,DTE_ICON[temp_gear++]);
+	}
+}
+
+void trp_icon_print()
+{
+	uint8_t temp_gear=0;
+	for(uint8_t x_axsis=36;x_axsis<=50;x_axsis++)
+	{
+	 lcd_print_convert(5,x_axsis,TRP_ICON[temp_gear++]);
+	}
+}
+void charge_cycle_print()
+{
+	uint8_t temp_gear=0;
+	for(uint8_t x_axsis=3;x_axsis<=19;x_axsis++)
+	{
+	 lcd_print_convert(0,x_axsis,cgc_icon[temp_gear++]);
+	}
+}
+
+uint8_t print_value_int=0;
 void lcd_print_char(uint8_t y_axis_start, uint8_t x_axis_start, char* print_value)//(x_axis_start, y_axis_start, icon_width, icon_height, *print_value
 {
 	uint8_t space=1;
@@ -258,7 +331,7 @@ void lcd_print_char(uint8_t y_axis_start, uint8_t x_axis_start, char* print_valu
 				{
 				 print_value_int=*print_value;
 				// lcd_print(alphabet[print_value_int-65][temp1]);
-				 lcd_print_convert(y_axis_start, x_axis_start++, (alphabet[print_value_int-65][temp1]));
+				 lcd_print_convert(y_axis_start, x_axis_start++, (alphabet[print_value_int-65][temp1])<<1);
 				 space=1;
 				}
 
@@ -267,7 +340,7 @@ void lcd_print_char(uint8_t y_axis_start, uint8_t x_axis_start, char* print_valu
 				 print_value_int=*print_value;
 				 //lcd_print(alphabet[print_value_int-71][temp1]);
 
-				 lcd_print_convert(y_axis_start,x_axis_start++, (alphabet[print_value_int-71][temp1]));
+				 lcd_print_convert(y_axis_start,x_axis_start++, (alphabet[print_value_int-71][temp1])<<1);
 				 space=0;
 				}
 
@@ -276,7 +349,7 @@ void lcd_print_char(uint8_t y_axis_start, uint8_t x_axis_start, char* print_valu
 				 print_value_int=*print_value;
 				 //lcd_print(digit[print_value_int-48][temp1]);
 
-				 lcd_print_convert(y_axis_start, x_axis_start++, (digit[print_value_int-48][temp1]));
+				 lcd_print_convert(y_axis_start, x_axis_start++, (digit[print_value_int-48][temp1])<<1);
 				 space=1;
 				}
 			 if(*print_value==46)
@@ -294,7 +367,7 @@ void lcd_print_char(uint8_t y_axis_start, uint8_t x_axis_start, char* print_valu
 
 			 if(*print_value==37)
 			 {
-				 lcd_print_convert(y_axis_start, x_axis_start++,persentage[temp1]);
+				 lcd_print_convert(y_axis_start, x_axis_start++,persentage[temp1]<<1);
 			 }
 		 }
 	 print_value++;
@@ -320,7 +393,7 @@ void lcd_print_digit_wos(uint8_t y_axis_start, uint8_t x_axis_start,uint8_t prin
 	for(int temp1=0;temp1<5;temp1++)
 	{
 		//lcd_print(digit[currentDigit][temp1]);
-		lcd_print_convert(y_axis_start, x_axis_start++, digit[print_value][temp1]);
+		lcd_print_convert(y_axis_start, x_axis_start++, (digit[print_value][temp1])<<1);
 	}
 	lcd_print_convert(y_axis_start, x_axis_start++, 0X00);
 }
@@ -348,7 +421,7 @@ void lcd_print_digit(uint8_t y_axis_start, uint8_t x_axis_start,uint16_t print_v
 		for(int temp1=0;temp1<5;temp1++)
 		{
 			//lcd_print(digit[currentDigit][temp1]);
-			lcd_print_convert(y_axis_start, x_axis_start++, digit[currentDigit][temp1]);
+			lcd_print_convert(y_axis_start, x_axis_start++, (digit[currentDigit][temp1])<<1);
 		}
 		lcd_print_convert(y_axis_start, x_axis_start++, 0X00);
 }
@@ -377,4 +450,47 @@ void lcd_into()
 void lcd_print_convert(uint8_t y_axsis,uint8_t x_axsis,uint8_t data)
 {
 	lcd_temp_ram[y_axsis][x_axsis]=data;
+}
+
+void print_am()
+{
+	for(uint8_t x_axis=0;x_axis<12;x_axis++)
+	   {
+		   for(uint8_t y_axis=0;y_axis<1;y_axis++)
+		   {
+			   lcd_print_convert((1+(y_axis)),(x_axis+7),time_am[x_axis]);
+		   }
+	   }
+}
+void line_print()
+{
+	 for(uint8_t y_axis=0;y_axis<1;y_axis++)
+			   {
+		for(uint8_t x_axis=0;x_axis<128;x_axis++)
+		   {
+			//if(x_axis==26){x_axis=102;}
+			   lcd_print_convert((6+(y_axis)),(x_axis),0x04);
+		   }
+	   }
+}
+void ttf_print()
+{
+	 for(uint8_t y_axis=0;y_axis<1;y_axis++)
+			   {
+		for(uint8_t x_axis=0;x_axis<13;x_axis++)
+		   {
+			   lcd_print_convert((5+(y_axis)),(x_axis+31),TTF_icon[x_axis]);
+		   }
+	   }
+}
+void start_icon_fun()
+{
+	uint16_t value_temp=0;
+	for(uint8_t y_axis=0;y_axis<7;y_axis++)
+	   {
+		for(uint8_t x_axis=57;x_axis<128;x_axis++)
+		   {
+			   lcd_print_convert(((y_axis)),(x_axis),start_icon[value_temp++]);
+		   }
+	   }
 }
