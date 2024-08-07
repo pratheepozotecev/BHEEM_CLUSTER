@@ -1,3 +1,4 @@
+
 /*
  * DALY_CAN_COM.H
  *
@@ -26,8 +27,8 @@ struct ReceivedData// Structure for declaring needed variables
   uint16_t Cumulative_Total_Voltage;
   uint16_t Gather_Total_Voltage;
   uint16_t Current;
-  uint16_t Battery_capacity;
-  uint16_t SOC;
+  uint32_t Battery_capacity;
+  int16_t SOC;
   uint16_t Max_Cell_Voltage;
   uint8_t Max_Cell_Voltage_No;
   uint16_t Min_Cell_Voltage;
@@ -121,6 +122,7 @@ struct ReceivedData// Structure for declaring needed variables
    uint8_t Cell46_Balance_State:1;
    uint8_t Cell47_Balance_State:1;
    uint8_t Cell48_Balance_State:1;
+
    uint8_t Cell_Volt_High_Level_1:1;
    uint8_t Cell_Volt_High_Level_2:1;
    uint8_t Cell_Volt_Low_Level_1:1;

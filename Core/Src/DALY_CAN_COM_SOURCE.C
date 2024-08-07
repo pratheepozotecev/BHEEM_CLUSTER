@@ -41,7 +41,7 @@ case ID_93:
  		  	     BMS.Charge_MOS_State= Received_Data[1];//0:stationary 1:charge 2:discharge
  		  	     BMS.Discharge_MOS_State= Received_Data[2];//0:stationary 1:charge 2:discharge
  		  		 BMS.BMS_Life = Received_Data[3];//Count of charge-discharge cycles
- 		  	     BMS.Capacity = Received_Data[4]|(Received_Data[5]<<8)|(Received_Data[6]<<16)|(Received_Data[7]<<24);//Remaining capacity of BMS
+ 		  	     BMS.Capacity = Received_Data[4]<<24|(Received_Data[5]<<16)|(Received_Data[6]<<8)|(Received_Data[7]);//Remaining capacity of BMS
                  break;
 case ID_94:
 	             BMS.No_Of_Battery = Received_Data[0];//Total number cells connected in BMS
@@ -169,11 +169,11 @@ case ID_98:
 	 			 break;
 
 case ID_52:
-	             BMS.Cumulative_Charge = ((Received_Data[1]<<16)|(Received_Data[2]<<8)|(Received_Data[3]));//The total amount of charge that has been delivered or supplied to a battery
+	             BMS.Cumulative_Charge = ((Received_Data[0]<<24)|(Received_Data[1]<<16)|(Received_Data[2]<<8)|(Received_Data[3]));//The total amount of charge that has been delivered or supplied to a battery
 	             break;
 
 case ID_50:
-	             BMS.Battery_capacity = (((Received_Data[2]<<8)|Received_Data[3])/1000);//The battery rated capacity in Ah eg(58 Ah)
+	             BMS.Battery_capacity = (((Received_Data[1]<<16)|(Received_Data[2]<<8)|Received_Data[3])/1000);//The battery rated capacity in Ah eg(58 Ah)
 	             break;
 
 default:

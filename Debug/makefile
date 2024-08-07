@@ -1,6 +1,6 @@
 ################################################################################
 # Automatically-generated file. Do not edit!
-# Toolchain: GNU Tools for STM32 (11.3.rel1)
+# Toolchain: GNU Tools for STM32 (12.3.rel1)
 ################################################################################
 
 -include ../makefile.init
@@ -34,37 +34,37 @@ $(wildcard ../makefile.init) \
 $(wildcard ../makefile.targets) \
 
 
-BUILD_ARTIFACT_NAME := CLUSTERPROJECT
+BUILD_ARTIFACT_NAME := Bheem_110
 BUILD_ARTIFACT_EXTENSION := elf
 BUILD_ARTIFACT_PREFIX :=
 BUILD_ARTIFACT := $(BUILD_ARTIFACT_PREFIX)$(BUILD_ARTIFACT_NAME)$(if $(BUILD_ARTIFACT_EXTENSION),.$(BUILD_ARTIFACT_EXTENSION),)
 
 # Add inputs and outputs from these tool invocations to the build variables 
 EXECUTABLES += \
-CLUSTERPROJECT.elf \
+Bheem_110.elf \
 
 MAP_FILES += \
-CLUSTERPROJECT.map \
+Bheem_110.map \
 
 SIZE_OUTPUT += \
 default.size.stdout \
 
 OBJDUMP_LIST += \
-CLUSTERPROJECT.list \
+Bheem_110.list \
 
 OBJCOPY_HEX += \
-CLUSTERPROJECT.hex \
+Bheem_110.hex \
 
 
 # All Target
 all: main-build
 
 # Main-build Target
-main-build: CLUSTERPROJECT.elf secondary-outputs
+main-build: Bheem_110.elf secondary-outputs
 
 # Tool invocations
-CLUSTERPROJECT.elf CLUSTERPROJECT.map: $(OBJS) $(USER_OBJS) D:\Project\OA_23_EE_03-V1\lcd_project\font\ chnage\CLUSTER\ DISPLAY\ PROJECT\ -\ Copy\ (2)\ -\ Copy\CLUSTERPROJECT\STM32F103C8TX_FLASH.ld makefile objects.list $(OPTIONAL_TOOL_DEPS)
-	arm-none-eabi-gcc -o "CLUSTERPROJECT.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m3 -T"D:\Project\OA_23_EE_03-V1\lcd_project\font chnage\CLUSTER DISPLAY PROJECT - Copy (2) - Copy\CLUSTERPROJECT\STM32F103C8TX_FLASH.ld" --specs=nosys.specs -Wl,-Map="CLUSTERPROJECT.map" -Wl,--gc-sections -static --specs=nano.specs -mfloat-abi=soft -mthumb -Wl,--start-group -lc -lm -Wl,--end-group
+Bheem_110.elf Bheem_110.map: $(OBJS) $(USER_OBJS) D:\Project\OA_23_EE_03-V1\lcd_project\Bheem\ 110\ Production\CLUSTERPROJECT\STM32F103C8TX_FLASH.ld makefile objects.list $(OPTIONAL_TOOL_DEPS)
+	arm-none-eabi-gcc -o "Bheem_110.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m3 -T"D:\Project\OA_23_EE_03-V1\lcd_project\Bheem 110 Production\CLUSTERPROJECT\STM32F103C8TX_FLASH.ld" --specs=nosys.specs -Wl,-Map="Bheem_110.map" -Wl,--gc-sections -static --specs=nano.specs -mfloat-abi=soft -mthumb -Wl,--start-group -lc -lm -Wl,--end-group
 	@echo 'Finished building target: $@'
 	@echo ' '
 
@@ -73,19 +73,19 @@ default.size.stdout: $(EXECUTABLES) makefile objects.list $(OPTIONAL_TOOL_DEPS)
 	@echo 'Finished building: $@'
 	@echo ' '
 
-CLUSTERPROJECT.list: $(EXECUTABLES) makefile objects.list $(OPTIONAL_TOOL_DEPS)
-	arm-none-eabi-objdump -h -S $(EXECUTABLES) > "CLUSTERPROJECT.list"
+Bheem_110.list: $(EXECUTABLES) makefile objects.list $(OPTIONAL_TOOL_DEPS)
+	arm-none-eabi-objdump -h -S $(EXECUTABLES) > "Bheem_110.list"
 	@echo 'Finished building: $@'
 	@echo ' '
 
-CLUSTERPROJECT.hex: $(EXECUTABLES) makefile objects.list $(OPTIONAL_TOOL_DEPS)
-	arm-none-eabi-objcopy  -O ihex $(EXECUTABLES) "CLUSTERPROJECT.hex"
+Bheem_110.hex: $(EXECUTABLES) makefile objects.list $(OPTIONAL_TOOL_DEPS)
+	arm-none-eabi-objcopy  -O ihex $(EXECUTABLES) "Bheem_110.hex"
 	@echo 'Finished building: $@'
 	@echo ' '
 
 # Other Targets
 clean:
-	-$(RM) CLUSTERPROJECT.elf CLUSTERPROJECT.hex CLUSTERPROJECT.list CLUSTERPROJECT.map default.size.stdout
+	-$(RM) Bheem_110.elf Bheem_110.hex Bheem_110.list Bheem_110.map default.size.stdout
 	-@echo ' '
 
 secondary-outputs: $(SIZE_OUTPUT) $(OBJDUMP_LIST) $(OBJCOPY_HEX)

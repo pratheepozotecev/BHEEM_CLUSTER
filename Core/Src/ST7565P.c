@@ -41,7 +41,7 @@ void lcd_print_ram_1()
 void lcd_init(){
 	GPIOB->BRR|=lcd_chip_sel_Pin;	 				//HAL_GPIO_WritePin(GPIOA,  CS_1_Pin,RESET);// low the cs pin to listen the controller
 	HAL_GPIO_WritePin(GPIOB, lcd_reset_Pin,RESET); // low reset button
-	HAL_Delay(500); // wait for 500ms
+	HAL_Delay(50); // wait for 500ms
 	HAL_GPIO_WritePin(GPIOB, lcd_reset_Pin,SET); // high the reset button for initial reset
 
 	  // LCD bias select
@@ -105,25 +105,6 @@ void lcd_speed(uint8_t num){
     second_num=((num%100)/10);
     third_num=((num%100)%10);
     value_num=0;
-
-//    for(x_axis=0;x_axis<20;x_axis++)
-//    {
-//        for(y_axis=0;y_axis<5;y_axis++)
-//        {
-//            lcd_print_convert((2+(y_axis)),(x_axis+41),number[second_num][value_num]);
-//            value_num++;
-//        }
-//    }
-//        value_num=0;
-//    for(x_axis=0;x_axis<20;x_axis++)
-//    {
-//        for(y_axis=0;y_axis<5;y_axis++)
-//        {
-//            lcd_print_convert((2+(y_axis)),(x_axis+63),number[third_num][value_num]);
-//            value_num++;
-//        }
-//    }
-//
 
 
    for(y_axis=0;y_axis<4;y_axis++)
@@ -294,7 +275,7 @@ void odo_icon_print()
 void dte_icon_print()
 {
 	uint8_t temp_gear=0;
-	for(uint8_t x_axsis=83;x_axsis<=97;x_axsis++)
+	for(uint8_t x_axsis=84;x_axsis<=96;x_axsis++)
 	{
 	 lcd_print_convert(0,x_axsis,DTE_ICON[temp_gear++]);
 	}
@@ -311,9 +292,17 @@ void trp_icon_print()
 void charge_cycle_print()
 {
 	uint8_t temp_gear=0;
-	for(uint8_t x_axsis=3;x_axsis<=19;x_axsis++)
+	for(uint8_t x_axsis=107;x_axsis<=123;x_axsis++)
 	{
-	 lcd_print_convert(0,x_axsis,cgc_icon[temp_gear++]);
+	 lcd_print_convert(2,x_axsis,cgc_icon[temp_gear++]);
+	}
+}
+void LBD_PRINT()
+{
+	uint8_t temp_gear=0;
+	for(uint8_t x_axsis=8;x_axsis<=22;x_axsis++)
+	{
+	 lcd_print_convert(2,x_axsis,LBD_icon[temp_gear++]);
 	}
 }
 
@@ -462,6 +451,19 @@ void print_am()
 		   }
 	   }
 }
+
+void over_temperature_print()
+{
+	uint8_t temp_gear = 0;
+	for(uint8_t y_axsis=1;y_axsis<=2;y_axsis++)
+	{
+		for(uint8_t x_axsis=25; x_axsis<=38;x_axsis++)
+		{
+			lcd_print_convert(y_axsis,x_axsis,High_temperature[temp_gear++]);
+		}
+	}
+}
+
 void line_print()
 {
 	 for(uint8_t y_axis=0;y_axis<1;y_axis++)

@@ -88,12 +88,19 @@ void Error_Handler(void);
 #define check_led_GPIO_Port GPIOB
 #define Buzzer_Pin GPIO_PIN_8
 #define Buzzer_GPIO_Port GPIOA
+#define ONE_WIRE_PRT_Pin GPIO_PIN_3
+#define ONE_WIRE_PRT_GPIO_Port GPIOB
+#define ONE_WIRE_PRT_EXTI_IRQn EXTI3_IRQn
+#define Reverse_state_Pin GPIO_PIN_4
+#define Reverse_state_GPIO_Port GPIOB
 
 /* USER CODE BEGIN Private defines */
 
-#define ODO_ADDRESS_EEPROM 0X20
-#define TRIP_ADDRESS_EEPROM 0X30
-#define LAST_STATE_ADDRESS_EEPROM 0X40
+#define CGC_value_EEPROM 0xB0
+#define ODO_ADDRESS_Ref 0XC0
+#define last_flash_update_EEPROM 0xD0
+#define last_flash_update_Address 0x0800EFC4
+
 /* USER CODE END Private defines */
 
 #ifdef __cplusplus
