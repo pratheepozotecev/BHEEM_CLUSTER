@@ -9,40 +9,118 @@
 #include "ST7565p.H"
 uint8_t lcd_temp_ram[8][128];
 uint8_t lcd_temp_ram_1[8][128];
-
+uint8_t Read_data[8][128];
+//uint8_t cmd_rx;
+//uint64_t cmd_count;
 void Lcd_cmd(uint8_t cmd)
 {
+	GPIOA->CRL=0X22222222;
 	GPIOB->BRR|=lcd_adr_Pin;  //Address(RESET);
 	GPIOB->BRR|=lcd_chip_sel_Pin;  //CS_1(RESET);
+//	GPIOB->BRR|=LCD_RW_Pin;
 	parllel_transmit(cmd&0xFF);
 	GPIOB->ODR|=LCD_RD_Pin;
 	GPIOB->BRR|=LCD_RD_Pin;
 	GPIOB->ODR|=lcd_chip_sel_Pin;   //CS_1(SET);
+
+//
+//	GPIOB->BRR|=lcd_adr_Pin;  //Address(RESET);
+//	GPIOB->BRR|=lcd_chip_sel_Pin;  //CS_1(RESET);
+//	cmd_rx=GPIOA->IDR & 0xFF;
+//	GPIOB->ODR|=LCD_RD_Pin;
+//	GPIOB->BRR|=LCD_RD_Pin;
+//	GPIOB->ODR|=lcd_chip_sel_Pin;   //CS_1(SET);
+//
+//	if(cmd == cmd_rx)
+//	{
+//		 cmd_count++;
+//	}
+//	else
+//	{
+//		cmd_count=0;
+////	}
+//	GPIOB->BRR|=lcd_adr_Pin;
+//	GPIOB->BRR|=LCD_RD_Pin;
+
 }
+uint16_t Display_error=0;
+uint8_t temp_dot_1,temp_dot;
+uint8_t status_rd;
 
 void lcd_print_ram_1()
 {
 	for(int y_axsis=0;y_axsis<=7;y_axsis++)
 	{
-		Lcd_cmd(y_axsis+0xB0);
 		for(int x_axsis=0;x_axsis<=127;x_axsis++)
 		{
+			GPIOA->CRL=0X22222222;
+			Lcd_cmd(y_axsis+0xB0);
 			lcd_x_axis(x_axsis);
-			GPIOB->ODR|=lcd_adr_Pin;  //Address(RESET);
-			GPIOB->ODR|=LCD_RD_Pin;
 			GPIOB->BRR|=lcd_chip_sel_Pin;  //CS_1(RESET);
-			parllel_transmit( (lcd_temp_ram_1[y_axsis][x_axsis])& 0XFF);
-			GPIOB->ODR|=lcd_chip_sel_Pin;
+			GPIOB->ODR|=lcd_adr_Pin;  //Address(RESET);
+			GPIOB->BRR|=LCD_RW_Pin;
+			GPIOA->ODR=0X00|((lcd_temp_ram_1[y_axsis][x_axsis])& 0XFF);
+			GPIOB->ODR|=LCD_RD_Pin;
 			GPIOB->BRR|=LCD_RD_Pin;//CS_1(SET);
+			GPIOB->ODR|=lcd_chip_sel_Pin;
+		}
+	}
+
+	for(int y_axsis=0;y_axsis<=7;y_axsis++)
+	{
+		uint8_t axsis=0; uint8_t dummy_read=1;
+		for(int x_axsis=0;x_axsis<=128;x_axsis++)
+		{
+			Lcd_cmd(y_axsis+0xB0);
+			lcd_x_axis(x_axsis);
+			GPIOA->CRL=0X88888888;
+			GPIOB->BRR|=lcd_chip_sel_Pin;
+			GPIOB->ODR|=lcd_adr_Pin;  //Address(RESET);
+			GPIOB->ODR|=LCD_RW_Pin;	  //Read write pin
+			GPIOB->ODR|=LCD_RD_Pin;   //Enable pin
+			//HAL_Delay(1);
+			if(dummy_read==1)
+			{
+				dummy_read++;
+			}
+			else
+			{
+				Read_data[y_axsis][x_axsis-1]=GPIOA->IDR & 0xFF; // Read data from the data port
+			}
+			GPIOB->BRR|=LCD_RD_Pin;//Enable pin reset
+			GPIOB->ODR|=lcd_chip_sel_Pin;   //CS_1(SET);
+		}
+		GPIOB->BRR|=LCD_RW_Pin;
+	}
+
+	for(int y_axsis=0;y_axsis<=7;y_axsis++)
+	{
+		for(int x_axsis=0;x_axsis<=127;x_axsis++)
+		{
+			if((lcd_temp_ram_1[y_axsis][x_axsis])!=(Read_data[y_axsis][x_axsis]))
+			{
+				Display_error++;
+				temp_dot=x_axsis;
+				temp_dot_1=y_axsis;
+				if(Display_error>=5)
+				{
+					while(1);
+				}
+			}
+			else
+			{
+				Display_error=0;
+			}
 		}
 	}
 }
 
 void lcd_init(){
-	GPIOB->BRR|=lcd_chip_sel_Pin;	 				//HAL_GPIO_WritePin(GPIOA,  CS_1_Pin,RESET);// low the cs pin to listen the controller
-	HAL_GPIO_WritePin(GPIOB, lcd_reset_Pin,RESET); // low reset button
-	HAL_Delay(50); // wait for 500ms
-	HAL_GPIO_WritePin(GPIOB, lcd_reset_Pin,SET); // high the reset button for initial reset
+
+		GPIOB->BRR|=lcd_chip_sel_Pin;	 				//HAL_GPIO_WritePin(GPIOA,  CS_1_Pin,RESET);// low the cs pin to listen the controller
+		HAL_GPIO_WritePin(GPIOB, lcd_reset_Pin,RESET); // low reset button
+		HAL_Delay(50); // wait for 500ms
+		HAL_GPIO_WritePin(GPIOB, lcd_reset_Pin,SET); // high the reset button for initial reset
 
 	  // LCD bias select
 	  Lcd_cmd(CMD_SET_BIAS_9);
@@ -441,16 +519,6 @@ void lcd_print_convert(uint8_t y_axsis,uint8_t x_axsis,uint8_t data)
 	lcd_temp_ram[y_axsis][x_axsis]=data;
 }
 
-void print_am()
-{
-	for(uint8_t x_axis=0;x_axis<12;x_axis++)
-	   {
-		   for(uint8_t y_axis=0;y_axis<1;y_axis++)
-		   {
-			   lcd_print_convert((1+(y_axis)),(x_axis+7),time_am[x_axis]);
-		   }
-	   }
-}
 
 void over_temperature_print()
 {
@@ -468,31 +536,10 @@ void line_print()
 {
 	 for(uint8_t y_axis=0;y_axis<1;y_axis++)
 			   {
-		for(uint8_t x_axis=0;x_axis<128;x_axis++)
+		for(uint8_t x_axis=0;x_axis<=127;x_axis++)
 		   {
 			//if(x_axis==26){x_axis=102;}
 			   lcd_print_convert((6+(y_axis)),(x_axis),0x04);
-		   }
-	   }
-}
-void ttf_print()
-{
-	 for(uint8_t y_axis=0;y_axis<1;y_axis++)
-			   {
-		for(uint8_t x_axis=0;x_axis<13;x_axis++)
-		   {
-			   lcd_print_convert((5+(y_axis)),(x_axis+31),TTF_icon[x_axis]);
-		   }
-	   }
-}
-void start_icon_fun()
-{
-	uint16_t value_temp=0;
-	for(uint8_t y_axis=0;y_axis<7;y_axis++)
-	   {
-		for(uint8_t x_axis=57;x_axis<128;x_axis++)
-		   {
-			   lcd_print_convert(((y_axis)),(x_axis),start_icon[value_temp++]);
 		   }
 	   }
 }

@@ -93,6 +93,10 @@ void Error_Handler(void);
 #define ONE_WIRE_PRT_EXTI_IRQn EXTI3_IRQn
 #define Reverse_state_Pin GPIO_PIN_4
 #define Reverse_state_GPIO_Port GPIOB
+#define Test_pin_Pin GPIO_PIN_5
+#define Test_pin_GPIO_Port GPIOB
+#define LCD_RW_Pin GPIO_PIN_7
+#define LCD_RW_GPIO_Port GPIOB
 
 /* USER CODE BEGIN Private defines */
 

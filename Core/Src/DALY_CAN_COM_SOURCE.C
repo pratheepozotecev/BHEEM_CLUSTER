@@ -175,7 +175,12 @@ case ID_52:
 case ID_50:
 	             BMS.Battery_capacity = (((Received_Data[1]<<16)|(Received_Data[2]<<8)|Received_Data[3])/1000);//The battery rated capacity in Ah eg(58 Ah)
 	             break;
+case ID_01:
 
+	             OBD.sensor_divider_1=((Received_Data[0]<<8)|(Received_Data[1]));//this value for CONTROLLER SPEED VALUE MULTIPLIYER
+	             OBD.sensor_divider_2=((Received_Data[2]<<8)|(Received_Data[3]));//this value for CONTROLLER SPEED VALUE MULTIPLIYER
+	             OBD.speed_sensor_type=Received_Data[4]; //2-> Speed read from controller 1-> speed from front when sensor
+	             break;
 default:
 
 	break;

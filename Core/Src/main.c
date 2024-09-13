@@ -29,7 +29,7 @@
 #define EEPROM_DEV_ADD 0xA0 // EEPROM 7-bit address
 #define bitSet(value, bit) ((value) |= (1UL << (bit)))
 #define bitClear(value, bit) ((value) &= ~(1UL << (bit)))
-
+#define  calib_reg 440//1656-165;
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -66,7 +66,7 @@ volatile uint16_t dataArray[400]; //It stores whenever External Interrupt detect
 volatile uint8_t validDataFlag; //If the checksum is equal to the received data then it will be stored 1 else it will 0.
 uint16_t m_sec=0,lop=0;
 uint8_t Tx_count=0;//This variable is for loop iteration
-uint8_t Transmit_Data[1]; //Declaration of an array capable of holding one byte of transmit data
+uint8_t Transmit_Data[8]; //Declaration of an array capable of holding one byte of transmit data
 uint32_t Rx_Id; //Temporary variable for storing received identifier
 uint32_t TxMailBox; // This variable is used to  transmitting data and acts like a message buffer
 uint32_t speed_count=0,next_update=500000;
@@ -84,9 +84,9 @@ uint16_t can_delay=500;
 uint8_t can_state=0;
 uint8_t print_pass=0;
 uint8_t Battery_high_Temp=0;
-#define  calib_reg 440//1656-165;
+
 uint16_t print_delay=2000;
-uint8_t print_state=1;
+extern uint8_t print_state=1;
 uint8_t bat_icon_toogle=0;
 uint8_t dataArray1[12];
 uint8_t checksum_error;
@@ -98,6 +98,9 @@ uint32_t CGC_value;
 uint32_t last_flash_update,read_flash_update;
 uint8_t EEPROM_ADDRESS[10]={0x10,0x20,0x30,0x40,0x50,0x60,0x70,0x80,0x90,0xA0};
 uint8_t TEMP_SP=0;
+
+uint16_t Speed_cal=0;
+uint8_t sensor_type=0;
 //uint8_t syncFlag = 0; // Whenever this flag is set the External Interrupt Will Disable, Reset External Interrupt Will Enable
 //uint8_t signalCounter=0; //It increments bit position for data bit by bit storing.
 uint8_t timerCounter1 = 0; //It will incremented every timer interrupt occur with time.
@@ -118,11 +121,13 @@ uint8_t data_Read[3];
 uint16_t calib_write[2];
 uint16_t calib_read[2];
 uint8_t ADR_LOC=0;
+uint8_t test_bit = 0;
 CAN_TxHeaderTypeDef TxHeader;// Adding structure variable for accessing Transmitter frame format element Eg: StdId,RTR..
 CAN_RxHeaderTypeDef RxHeader;// Adding Structure variable for accessing Receiver frame format element
 
 uint16_t Bike_speed;
-unsigned int BMS_ID[]={0X18900140,0X18910140, 0X18920140,0X18930140,0X18940140,0X18950140,0X18960140,0X18970140,0X18980140,0X18520140,0X18500140};
+unsigned int BMS_ID[]={0X18900140,0X18910140, 0X18920140,0X18930140,0X18940140,0X18950140,0X18960140,0X18970140,0X18980140,0X18520140,0X18500140,0x09011024};
+
 
 /* USER CODE END PV */
 
@@ -349,8 +354,7 @@ void battery_soc()
 		lcd_print_digit_wos(7, 116, (Reserved_SOC/10)%10);
 		lcd_print_char(7, 122, "%");
 	}
-
-
+	battery_bar_soc();
 }
 uint8_t start_inc=0;uint8_t Reverse_status=0;uint16_t DTE=0;
 void Gear_Status()
@@ -364,21 +368,42 @@ void Gear_Status()
 	else
 		{
 			Reverse_status=0;
-			gear_status_print(Motor_Data.Three_speed);
+			if(Motor_Data.Device_Code==8)
+			{
+				gear_status_print(Motor_Data.Three_speed);
 
 				if(Motor_Data.Three_speed==1)
-					{
-						DTE=(Reserved_SOC*1.4)/10.0;
-					}
+				{
+					DTE=(Reserved_SOC*1.4)/10.0;
+				}
 				if(Motor_Data.Three_speed==2)
-					{
-						DTE=(Reserved_SOC*1.2)/10.0;
-					}
+				{
+					DTE=(Reserved_SOC*1.2)/10.0;
+				}
 				if(Motor_Data.Three_speed==3)
-					{
-						DTE=(Reserved_SOC*1)/10.0;
-					}
+				{
+					DTE=(Reserved_SOC*1)/10.0;
+				}
+			}
 
+			if(Motor_Data.Device_Code==13)
+			{
+				if(Motor_Data.Three_speed==3)
+				{
+					gear_status_print(1);
+					DTE=(Reserved_SOC*1.4)/10.0;
+				}
+				if(Motor_Data.Three_speed==0)
+				{
+					gear_status_print(2);
+					DTE=(Reserved_SOC*1.2)/10.0;
+				}
+				if(Motor_Data.Three_speed==1)
+				{
+					gear_status_print(3);
+					DTE=(Reserved_SOC*1)/10.0;
+				}
+			}
 
 //				if((HAL_GPIO_ReadPin(GPIOB, Gear_1_Pin)==1)&&((HAL_GPIO_ReadPin(GPIOB, Gear_3_Pin)==0)))
 //					{
@@ -402,10 +427,72 @@ void Gear_Status()
 		DTE=0;
 	}
 }
+
+void EEPROM_init()
+{
+  Range.Ref=I2C_Read_EEPROM(ODO_ADDRESS_Ref);
+	 if(Range.Ref!=12345)
+	 {
+		 I2C_Write_EEPROM(12345, ODO_ADDRESS_Ref);
+		 I2C_Write_EEPROM(0, last_flash_update_EEPROM);
+		 for(uint8_t inf=0;inf<=9;inf++)  //Read data from EEPROM
+		 {
+			I2C_Write_EEPROM(0,EEPROM_ADDRESS[inf]);
+		 }
+	 }
+	 else
+	 {
+		 last_flash_update=I2C_Read_EEPROM(last_flash_update_EEPROM); // read last flash write data
+
+		 for(uint8_t inf=0;inf<=9;inf++)  //Read data from EEPROM
+		 {
+			Odo_Value_1[inf]=Odo_Value[inf]=I2C_Read_EEPROM(EEPROM_ADDRESS[inf]);
+		 }
+
+		 for (uint8_t i = 1; i < 10; i++)
+		 {
+			if (Odo_Value[i] < Odo_Value[ADR_LOC])
+			{
+				ADR_LOC= i;
+			}
+		 }
+
+		uint32_t temp=0;
+		 for (uint8_t i = 0; i < 10; i++)
+		 {
+			 for (uint8_t j = 0; j < 9-i; j++)
+			 {
+				 if (Odo_Value[j] > Odo_Value[j+1])
+				 {
+					 // Swap arr[j] and arr[j+1]
+					 temp = Odo_Value[j];
+					 Odo_Value[j] = Odo_Value[j+1];
+					 Odo_Value[j+1] = temp;
+				 }
+			 }
+		 }
+		 uint8_t check_temp=0;
+		for(uint8_t i=0;i<=9;i++)
+		{
+			if((last_flash_update<=Odo_Value[i])&&((last_flash_update+1000)>=Odo_Value[i]))
+			{
+				Range.Odometer_Value=Odo_Value[i];
+				check_temp++;
+			}
+		}
+
+		if(check_temp==0)
+		{
+			Range.Odometer_Value=last_flash_update;
+		}
+	 }
+	 first_time=3;
+}
+
 uint8_t can_error=0,can_error_state=0,error_count=0;
 void BMS_CAN()//Transmitter function
 {
-	for(Tx_count=0; Tx_count<11; Tx_count++)
+	for(Tx_count=0; Tx_count<12; Tx_count++)
 	  {
 		TxHeader.ExtId = BMS_ID[Tx_count]; // Extended Identifier
 		TxHeader.IDE = CAN_ID_EXT; // Identifier Extension
@@ -420,7 +507,7 @@ void BMS_CAN()//Transmitter function
 	  HAL_Delay(50);
 	  }
 
-		if(can_error_state==0)
+		if(can_error_state==0) // Can Error finder
 		{
 			if(can_error)
 			{
@@ -438,7 +525,6 @@ void BMS_CAN()//Transmitter function
 			BMS.SOC=BMS.Max_Temp=BMS.Min_Temp=BMS.Cumulative_Total_Voltage=0;
 		}
 		can_error=1;
-
 	Tx_count=0;
 }
 
@@ -474,6 +560,7 @@ void battery_bar_soc()
 			battery_bar_print(0);
 		}
 		else{
+
 			line_print();
 		}
 	}
@@ -492,6 +579,27 @@ void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan)//Receiver Interr
  		can_error_state=0;
  		can_error=0;
  		error_count=0;
+
+ 		if(Rx_Id==0x09021024)
+		{
+ 				TxHeader.ExtId =0x09022024; // Extended Identifier
+ 				TxHeader.IDE = CAN_ID_EXT; // Identifier Extension
+ 				TxHeader.RTR = CAN_RTR_DATA;// Remote Transmission Request bit, here send data frame
+ 				TxHeader.DLC = 8;//Data length code
+ 				Transmit_Data[0]=0x02;//Flio->1 Bheem->2
+ 				Transmit_Data[1]=((Range.Odometer_Value&0xff000000)>>24);//Data
+ 				Transmit_Data[2]=((Range.Odometer_Value&0x00ff0000)>>16);//Data
+ 				Transmit_Data[3]=((Range.Odometer_Value&0x0000ff00)>>8);//Data
+ 				Transmit_Data[4]=((Range.Odometer_Value&0x000000ff));//Data
+ 				Transmit_Data[5]=((CGC_value&0xff00)>>8);//Data
+ 				Transmit_Data[6]=((CGC_value&0x00ff)>>0);;//Data
+ 				Transmit_Data[7]=(Reserved_SOC/10);//Data
+
+ 			   if(HAL_CAN_AddTxMessage(&hcan, &TxHeader, &Transmit_Data[Tx_count], &TxMailBox) != HAL_OK)//Adding data to the mailbox for transmitting
+ 				  {
+ 				   //Error_Handler();
+ 				  }
+		}
  	}
 }
 
@@ -528,6 +636,51 @@ void ODO_PRINT()
 	lcd_print_digit_wos(5, 80,sixth);
 	lcd_print_char(5,89, "km");
 }
+uint16_t speed_temp1=0;
+uint32_t controller_speed_data=0,Multipli;
+//void speed()
+//{
+//	if(Motor_Data.Device_Code==13)
+//	{
+//		if(dataArray1[7]==106)
+//		{
+//			if((dataArray[8]>=106)&&(dataArray1[8]<=255))
+//			{
+//				speed_temp1=dataArray1[8]-106;
+//			}
+//			if((dataArray[8]>=0)&&(dataArray1[8]<=105))
+//			{
+//				speed_temp1=dataArray1[8]+149;
+//			}
+//		}
+//
+//		if(dataArray1[7]==107)
+//		{
+//			if((dataArray[8]>=106)&&(dataArray1[8]<=255))
+//			{
+//				speed_temp1=dataArray1[8]+149;
+//			}
+//			if((dataArray[8]>=0)&&(dataArray1[8]<=105))
+//			{
+//				speed_temp1=dataArray1[8]+404;
+//			}
+//		}
+//
+//		if(dataArray1[7]==108)
+//		{
+//			if((dataArray[8]>=106)&&(dataArray1[8]<=255))
+//			{
+//				speed_temp1=dataArray1[8]+404;
+//			}
+//			if((dataArray[8]>=0)&&(dataArray1[8]<=105))
+//			{
+//				speed_temp1=dataArray1[8]+659;
+//			}
+//		}
+//
+//		controller_speed_data=speed_temp1*Multipli;
+//	}
+//}
 
 void ODO_calculation()
 {
@@ -544,7 +697,6 @@ void ODO_calculation()
 		Range.Odometer_Value++;
 		I2C_Write_EEPROM(Range.Odometer_Value,EEPROM_ADDRESS[ADR_LOC]);
 		Odo_Value[ADR_LOC]=Range.Odometer_Value_temp=I2C_Read_EEPROM(EEPROM_ADDRESS[ADR_LOC]);
-
 		if(Range.Odometer_Value==Range.Odometer_Value_temp)
 		{
 			ADR_LOC++;
@@ -559,11 +711,9 @@ void ODO_calculation()
 			I2C_Write_EEPROM(Range.Odometer_Value,EEPROM_ADDRESS[ADR_LOC]);
 			ADR_LOC++;
 		}
-
 		if(ADR_LOC>=10)
 		{
 			ADR_LOC=0;
-
 			if((last_flash_update<=Range.Odometer_Value)&&((last_flash_update+1)>=Range.Odometer_Value))
 			{
 				Range.Odometer_Value=last_flash_update;
@@ -571,7 +721,8 @@ void ODO_calculation()
 		}
 	}
 }
-
+uint8_t cmd_rx;
+uint16_t speed_temp=0,Controller_Speed=0;
 /* USER CODE END 0 */
 
 /**
@@ -608,7 +759,7 @@ int main(void)
   MX_I2C1_Init();
   MX_IWDG_Init();
   /* USER CODE BEGIN 2 */
-
+  PVD_Init();
   HAL_I2C_Init(&hi2c1);
   HAL_CAN_Start(&hcan);// CAN protocol enable function
   HAL_CAN_ActivateNotification(&hcan,CAN_IT_RX_FIFO0_MSG_PENDING); // Interrupt activation for Receiving data ,whenever data is received in FIFO, this function will get triggered and goes to receiver interrupt function
@@ -617,84 +768,26 @@ int main(void)
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
-  	 lcd_init();
+  lcd_init();
      if(RCC->CSR&RCC_CSR_IWDGRSTF)
      {
     	 RCC->CSR|=1<<24;
      }
      else
      {
-		 lcd_into();
-		 HAL_Delay(500);
-		 lcd_clear(0, 0, 127);
-		 lcd_clear(1, 0, 127);
-		 lcd_clear(2, 0, 127);
-		 lcd_clear(3, 0, 127);
-		 lcd_clear(4, 0, 127);
-		 lcd_clear(5, 0, 127);
-		 lcd_clear(6, 0, 127);
-		 lcd_clear(7, 0, 127);
+		lcd_into();
+		HAL_Delay(500);
+		lcd_clear(0, 0, 127);
+		lcd_clear(1, 0, 127);
+		lcd_clear(2, 0, 127);
+		lcd_clear(3, 0, 127);
+		lcd_clear(4, 0, 127);
+		lcd_clear(5, 0, 127);
+		lcd_clear(6, 0, 127);
+		lcd_clear(7, 0, 127);
      }
-     Range.Ref=I2C_Read_EEPROM(ODO_ADDRESS_Ref);
-     if(Range.Ref!=12345)
-     {
-    	 I2C_Write_EEPROM(12345, ODO_ADDRESS_Ref);
-    	 I2C_Write_EEPROM(0, last_flash_update_EEPROM);
-    	 for(uint8_t inf=0;inf<=9;inf++)  //Read data from EEPROM
-		 {
-			I2C_Write_EEPROM(0,EEPROM_ADDRESS[inf]);
-		 }
-     }
-     else
-     {
-     	 last_flash_update=I2C_Read_EEPROM(last_flash_update_EEPROM); // read last flash write data
-
-     	 for(uint8_t inf=0;inf<=9;inf++)  //Read data from EEPROM
-     	 {
-     		Odo_Value_1[inf]=Odo_Value[inf]=I2C_Read_EEPROM(EEPROM_ADDRESS[inf]);
-     	 }
-
-     	 for (uint8_t i = 1; i < 10; i++)
-     	 {
-     	        if (Odo_Value[i] < Odo_Value[ADR_LOC])
-     	        {
-     	        	ADR_LOC= i;
-     	        }
-     	 }
-
-     	uint32_t temp=0;
-         for (uint8_t i = 0; i < 10; i++)
-         {
-             for (uint8_t j = 0; j < 9-i; j++)
-             {
-                 if (Odo_Value[j] > Odo_Value[j+1])
-                 {
-                     // Swap arr[j] and arr[j+1]
-                     temp = Odo_Value[j];
-                     Odo_Value[j] = Odo_Value[j+1];
-                     Odo_Value[j+1] = temp;
-                 }
-             }
-         }
-         uint8_t check_temp=0;
-		for(uint8_t i=0;i<=9;i++)
-		{
-			if((last_flash_update<=Odo_Value[i])&&((last_flash_update+1000)>=Odo_Value[i]))
-			{
-				Range.Odometer_Value=Odo_Value[i];
-				check_temp++;
-			}
-		}
-
-		if(check_temp==0)
-		{
-			Range.Odometer_Value=last_flash_update;
-		}
-     }
-
-	 first_time=3;
+     EEPROM_init();
 	 MX_IWDG_Init();
-
  while(1)
   {
     /* USER CODE END WHILE */
@@ -715,14 +808,13 @@ int main(void)
 		BMS_CAN();// read data from the BMS through the can protocol
 		if(first_time)
 		{
-			battery_cycle();
-			first_time--;
+		   battery_cycle();
+		   first_time--;
 		}
-	    Gear_Status();
+		Gear_Status();
 		battery_temp();
-		battery_soc();
 		line_print();
-		battery_bar_soc();
+		battery_soc();
 		ODO_calculation();
 		ODO_PRINT();
 		battery_voltage();
@@ -733,13 +825,12 @@ int main(void)
 		lcd_invert_process();
 		lcd_print_ram_1();
 	  }
-
 		if((Range.Odometer_Value>=last_flash_update+1000)&&(Range.Odometer_Value<=last_flash_update+1010))
 		{
 			last_flash_update=Range.Odometer_Value;
 			I2C_Write_EEPROM(last_flash_update,last_flash_update_EEPROM);
 		}
-		 HAL_IWDG_Refresh(&hiwdg);
+		HAL_IWDG_Refresh(&hiwdg);
   }
   /* USER CODE END 3 */
 }
@@ -968,7 +1059,7 @@ static void MX_GPIO_Init(void)
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOB, lcd_adr_Pin|LCD_RD_Pin|lcd_reset_Pin|lcd_chip_sel_Pin
-                          |check_led_Pin, GPIO_PIN_RESET);
+                          |check_led_Pin|Test_pin_Pin|LCD_RW_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin : speed_sensor_Pin */
   GPIO_InitStruct.Pin = speed_sensor_Pin;
@@ -988,9 +1079,9 @@ static void MX_GPIO_Init(void)
   HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
   /*Configure GPIO pins : lcd_adr_Pin LCD_RD_Pin lcd_reset_Pin lcd_chip_sel_Pin
-                           check_led_Pin */
+                           check_led_Pin Test_pin_Pin LCD_RW_Pin */
   GPIO_InitStruct.Pin = lcd_adr_Pin|LCD_RD_Pin|lcd_reset_Pin|lcd_chip_sel_Pin
-                          |check_led_Pin;
+                          |check_led_Pin|Test_pin_Pin|LCD_RW_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
@@ -1059,8 +1150,7 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) // To create a every
 		 {
 			 HAL_GPIO_TogglePin(GPIOA, Buzzer_Pin);
 		 }
-	}
-
+	 }
 
 	 if(m_sec==speed_time)
 	 	{
@@ -1105,11 +1195,12 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) // To create a every
 		 }
 	 }
 
-
 	 if(Pin_State == 1)
 	 {
 	 if(timerCounter2>=30)		// after every 750us only check the signal data from external interrupt pin.
 		 {
+		 	 HAL_GPIO_TogglePin(GPIOB, Test_pin_Pin);
+		 	 test_bit++;
 			if(HAL_GPIO_ReadPin(GPIOB, ONE_WIRE_PRT_Pin)) 		//after 750us pin in high state , data 0
 			{
 				bitClear(dataArray[signalCounter],bit_count);
@@ -1135,7 +1226,7 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) // To create a every
 				timerCounter3=0;
 				for(uint8_t i = 0; i < 12;i++)
 				{
-				dataArray1[i]=dataArray[i];		//The received data are stored in another array and it will wait for next data reception.
+					dataArray1[i]=dataArray[i];		//The received data are stored in another array and it will wait for next data reception.
 				}
 				 processData();    	//after storing the data should be processed for structure for easy access to the user.
 			}
@@ -1154,7 +1245,6 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) // To create a every
 
 void HAL_GPIO_EXTI_Callback (uint16_t GPIO_Pin)
 {
-
 	if(GPIO_Pin==speed_sensor_Pin)
 	{
 		uint8_t reading = HAL_GPIO_ReadPin(GPIOC, speed_sensor_Pin);
@@ -1186,92 +1276,85 @@ void HAL_GPIO_EXTI_Callback (uint16_t GPIO_Pin)
 			doc++;
 		}
 	}
-
  if (GPIO_Pin ==ONE_WIRE_PRT_Pin )  	//Every rising edge detected the interrupt will be triggered.
-	  {
-		// testing++;
-
-		 if(SYC_DATA ==0)
+  {
+	 if(SYC_DATA ==0)
+	 {
+		 if(timerCounter3 > 0)
 		 {
-			 if(timerCounter3 > 0)
+			SYC_PASS = timerCounter3;		//whenever the interrupt triggered that corresponding timer interrupt count should be stored in variable.
+			timerCounter3 = 0;
+			 if(SYC_PASS >= 500)		//(SYN_PASS >=1000 For bheem)	//whenever the one interrupt to another interrupt time should be greater than 20ms , it is synchronization period . After the synchronization period data are storing process should be start.(20x50 = 1ms so 200x50 = 10ms)
 			 {
-				 SYC_PASS = timerCounter3;		//whenever the interrupt triggered that corresponding timer interrupt count should be stored in variable.
-				 timerCounter3 = 0;
-				 if(SYC_PASS >= 500)		//(SYN_PASS >=1000 For bheem)	//whenever the one interrupt to another interrupt time should be greater than 20ms , it is synchronization period . After the synchronization period data are storing process should be start.(20x50 = 1ms so 200x50 = 10ms)
-				 {
-					 SYC_DATA = 1;
-					 SYC_PASS = 0;
-
-					 timerCounter3 = 0;
-				 }
+				SYC_DATA = 1;
+				SYC_PASS = 0;
+				timerCounter3 = 0;
 			 }
 		 }
+	 }
 
-		 if(SYC_DATA == 1)
-		 {
-			 Pin_State=1;   	//after synchronization this bit set for data storing.
-			 timerCounter2=0;
-		 }
-		 timerCounter3 = 0;
-	  }
+	 if(SYC_DATA == 1)
+	 {
+		Pin_State=1;   	//after synchronization this bit set for data storing.
+		timerCounter2=0;
+	 }
+	 timerCounter3 = 0;
+  }
 }
 
 void processData(void) { // find out the synchronization period and converting data into 's and 1's
 
-//	HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_4);
- 	   uint8_t calculatedChecksum = 0;
-	    for (int checksum_count = 0; checksum_count < STORED_DATA_SIZE - 1; checksum_count++) { //To calculate the checksum for DATA0 to DATA10 and check the received checksum in DATA11
-	        calculatedChecksum ^= dataArray1[checksum_count];
-	    }
-	    if (calculatedChecksum == dataArray1[STORED_DATA_SIZE - 1]) { // If the calculated checksum is equal to the received checksum then set the validDataFlag
-	    	validDataFlag = 1;
-	    }
-	    else
-	    {
-	    	checksum_error++;
-	    	validDataFlag = 0;// If the calculated checksum is Not equal to the received checksum then Reset the validDataFlag
+   uint8_t calculatedChecksum = 0;
+	for (int checksum_count = 0; checksum_count < STORED_DATA_SIZE - 1; checksum_count++) { //To calculate the checksum for DATA0 to DATA10 and check the received checksum in DATA11
+		calculatedChecksum ^= dataArray1[checksum_count];
+	}
+	if (calculatedChecksum == dataArray1[STORED_DATA_SIZE - 1]) { // If the calculated checksum is equal to the received checksum then set the validDataFlag
+		validDataFlag = 1;
+	}
+	else
+	{
+		checksum_error++;
+		validDataFlag = 0;// If the calculated checksum is Not equal to the received checksum then Reset the validDataFlag
+	}
 
-	    }
-
-	    if(validDataFlag == 1)
-	    {
-			Motor_Data.Device_Code = dataArray1[0]; // Default Device code stored in this variable. 8bit
-			Motor_Data.Sequence_code = dataArray1[1]; // Default Sequence code stored in this variable. 8bit
-			Motor_Data.Alternate_Bit1 = ((dataArray1[2] & 0xF0) >> 4); // This variable used for Alternate Function/operation . 4bit
-			Motor_Data.Parking_Indication = ((dataArray1[2] & 0x08) >> 3); //This variable is stored the parking Indication state. 1bit
-			Motor_Data.Speed_Limit = ((dataArray1[2] & 0x04) >> 2); // This variable is stored the Speed limit state. 1bit
-			Motor_Data.Alternate_Bit2 = ((dataArray1[2] & 0x02) << 1); // This variable used for Alternate Function/operation 1bit
-			Motor_Data.Side_Brace_Indication = ((dataArray1[2] & 0x01) >> 0);
-			Motor_Data.Pushcart_prohibitedsign = ((dataArray1[3] & 0x80) >> 7); // If any Prohibited sign to indicate the display using this variable. 1bit
-			Motor_Data.Hall_fault = ((dataArray1[3] & 0x40) >> 6); // If hall sensor status stored in this variable. 1bit(0-o hall fault, 1-Hall Fault).
-			Motor_Data.Throttle_fault = ((dataArray1[3] & 0x20) >> 5); //If throttle status stored in this variable. 1bit(0-No Throttle Fault, 1-Throttle Fault).
-			Motor_Data.Controller_fault = ((dataArray1[3] & 0x10) >> 4); //If the controller status stored in this variable. 1bit(0-No Controller Fault, 1-Controller Fault).
-			Motor_Data.Under_Voltageprotection = ((dataArray1[3] & 0x08) >> 3); //Under voltage protection status stored in this variable. 1bit(0-No under voltage protection, 1- under voltage protection).
-			Motor_Data.Cruise = ((dataArray1[3] & 0x04) >> 2); // Cruise mode on/off status stored in this variable. 1bit(0-No cruise mode on,1-cruise mode on).
-			Motor_Data.Assistance_power = ((dataArray1[3] & 0x02) >> 1); //Power assistance status stored in this variable. 1bit(0-No power assistance, 1-Power assistance On).
-			Motor_Data.Motor_phase_loss = ((dataArray1[3] & 0x01) >> 0); //Motor phase loss status stored in this variable. 1bit(0-No motor phase loss, 1-Motor phase loss).
-			Motor_Data.Four_gear_indication = ((dataArray1[4] & 0x80) >> 7); //Four gear indication status stored in this variable. 1bit
-			Motor_Data.Motor_Running = ((dataArray1[4] & 0x40) >> 6);//Motor status stored in this variable. 1bit(0- Motor is stopping ,1- Motor is running)
-			Motor_Data.brake = ((dataArray1[4] & 0x20) >> 5); // Brake status stored in this variable. 1bit(0-No brake applied, 1- Brake applied)
-			Motor_Data.Controller_protect = ((dataArray1[4] & 0x10) >> 4); //Controller protection  status stored in this variable. 1bit(0-No controller protection,1-Controller protection)
-			Motor_Data.Slide_charging = ((dataArray1[4] & 0x08) >> 3); // Regeneration status stored in this variable. 1bit(0- No regeneration detected, 1- regeneration detected.	   	Motor_Data.Antiflying_vehicle_protection = ((dataArray[4] & 0x04) >> 2);
-			Motor_Data.Three_speed = ((dataArray1[4] & 0x03) >> 0); // Three speed mode status stored in this variable. 2bit (00 - Controller without three speed, 01 - Low Speed, 10- Medium Speed, 11- High speed)
-			Motor_Data.Cloud_powermode = ((dataArray1[5] & 0x80) >> 7); // Speed increase status stored in this variable. 1bit
-			Motor_Data.Push_to_talk = ((dataArray1[5] & 0x40) >> 6); //Most EVs have bluetooth connectivity that allows you to connect your phone and use its features hands-free while driving. This includes making calls, sending messages, and using navigation app.1bit
-			Motor_Data.Standby_powersupply = ((dataArray1[5] & 0x20) >> 5); //The standby power supply are stored in this variable.1bit(0-No standby power supply,1-Standby power supply mode on).
-			Motor_Data.Overcurrent_protection = ((dataArray1[5] & 0x10) >> 4); //Over current protection status stored in this variable.1bit(0-No over current protection, 1-over current protection)
-			Motor_Data.Locked_rotor_protection = ((dataArray1[5] & 0x08) >> 3); //This variable is stored the status of Locked Rotor protection. (0-No locked Rotor protection,1-Locked Rotor Protection)
-			Motor_Data.Reverse = ((dataArray1[5] & 0x04) >> 2); //This variable is stored the status of reverse indication. 1bit(0- Forward, 1- Reverse).
-			Motor_Data.Electronic_break = ((dataArray1[5] & 0x02) >> 1); //It is a Low Brake. The Low brake indication status are stored in this bit . 1bit
-			Motor_Data.Speed_limit = ((dataArray1[5] & 0x01) >> 0); //To set the speed limit using this variable. 1bit
-			Motor_Data.Operating_current = dataArray1[6];//Operating current rating are stored in this variable. 8bit
-			Motor_Data.Speed = ((dataArray1[7] << 8 )| dataArray[8]); //Speed calculation are stored in this variable. Speed byte high(8bit) and speed byte low(8bit) are combined and stored in this single variable. 16bits
-			Motor_Data.Battery_Level = dataArray1[9]; //Battery level are stored in this variable. 8bit
-			Motor_Data.Current_Level = dataArray1[10]; //Current level are stored in this variable. 8bit
-			Motor_Data.Checksum = dataArray1[11]; // Received checksum data's are stored in this variable. 8bit
-		   	//voltage1 = (((Motor_Data.Speed *Diameter)/48)/9);
-			validDataFlag = 0;
-	    }
+	if(validDataFlag == 1)
+	{
+		Motor_Data.Device_Code = dataArray1[0]; // Default Device code stored in this variable. 8bit
+		Motor_Data.Sequence_code = dataArray1[1]; // Default Sequence code stored in this variable. 8bit
+		Motor_Data.Alternate_Bit1 = ((dataArray1[2] & 0xF0) >> 4); // This variable used for Alternate Function/operation . 4bit
+		Motor_Data.Parking_Indication = ((dataArray1[2] & 0x08) >> 3); //This variable is stored the parking Indication state. 1bit
+		Motor_Data.Speed_Limit = ((dataArray1[2] & 0x04) >> 2); // This variable is stored the Speed limit state. 1bit
+		Motor_Data.Alternate_Bit2 = ((dataArray1[2] & 0x02) << 1); // This variable used for Alternate Function/operation 1bit
+		Motor_Data.Side_Brace_Indication = ((dataArray1[2] & 0x01) >> 0);
+		Motor_Data.Pushcart_prohibitedsign = ((dataArray1[3] & 0x80) >> 7); // If any Prohibited sign to indicate the display using this variable. 1bit
+		Motor_Data.Hall_fault = ((dataArray1[3] & 0x40) >> 6); // If hall sensor status stored in this variable. 1bit(0-o hall fault, 1-Hall Fault).
+		Motor_Data.Throttle_fault = ((dataArray1[3] & 0x20) >> 5); //If throttle status stored in this variable. 1bit(0-No Throttle Fault, 1-Throttle Fault).
+		Motor_Data.Controller_fault = ((dataArray1[3] & 0x10) >> 4); //If the controller status stored in this variable. 1bit(0-No Controller Fault, 1-Controller Fault).
+		Motor_Data.Under_Voltageprotection = ((dataArray1[3] & 0x08) >> 3); //Under voltage protection status stored in this variable. 1bit(0-No under voltage protection, 1- under voltage protection).
+		Motor_Data.Cruise = ((dataArray1[3] & 0x04) >> 2); // Cruise mode on/off status stored in this variable. 1bit(0-No cruise mode on,1-cruise mode on).
+		Motor_Data.Assistance_power = ((dataArray1[3] & 0x02) >> 1); //Power assistance status stored in this variable. 1bit(0-No power assistance, 1-Power assistance On).
+		Motor_Data.Motor_phase_loss = ((dataArray1[3] & 0x01) >> 0); //Motor phase loss status stored in this variable. 1bit(0-No motor phase loss, 1-Motor phase loss).
+		Motor_Data.Four_gear_indication = ((dataArray1[4] & 0x80) >> 7); //Four gear indication status stored in this variable. 1bit
+		Motor_Data.Motor_Running = ((dataArray1[4] & 0x40) >> 6);//Motor status stored in this variable. 1bit(0- Motor is stopping ,1- Motor is running)
+		Motor_Data.brake = ((dataArray1[4] & 0x20) >> 5); // Brake status stored in this variable. 1bit(0-No brake applied, 1- Brake applied)
+		Motor_Data.Controller_protect = ((dataArray1[4] & 0x10) >> 4); //Controller protection  status stored in this variable. 1bit(0-No controller protection,1-Controller protection)
+		Motor_Data.Slide_charging = ((dataArray1[4] & 0x08) >> 3); // Regeneration status stored in this variable. 1bit(0- No regeneration detected, 1- regeneration detected.	   	Motor_Data.Antiflying_vehicle_protection = ((dataArray[4] & 0x04) >> 2);
+		Motor_Data.Three_speed = ((dataArray1[4] & 0x03) >> 0); // Three speed mode status stored in this variable. 2bit (00 - Controller without three speed, 01 - Low Speed, 10- Medium Speed, 11- High speed)
+		Motor_Data.Cloud_powermode = ((dataArray1[5] & 0x80) >> 7); // Speed increase status stored in this variable. 1bit
+		Motor_Data.Push_to_talk = ((dataArray1[5] & 0x40) >> 6); //Most EVs have bluetooth connectivity that allows you to connect your phone and use its features hands-free while driving. This includes making calls, sending messages, and using navigation app.1bit
+		Motor_Data.Standby_powersupply = ((dataArray1[5] & 0x20) >> 5); //The standby power supply are stored in this variable.1bit(0-No standby power supply,1-Standby power supply mode on).
+		Motor_Data.Overcurrent_protection = ((dataArray1[5] & 0x10) >> 4); //Over current protection status stored in this variable.1bit(0-No over current protection, 1-over current protection)
+		Motor_Data.Locked_rotor_protection = ((dataArray1[5] & 0x08) >> 3); //This variable is stored the status of Locked Rotor protection. (0-No locked Rotor protection,1-Locked Rotor Protection)
+		Motor_Data.Reverse = ((dataArray1[5] & 0x04) >> 2); //This variable is stored the status of reverse indication. 1bit(0- Forward, 1- Reverse).
+		Motor_Data.Electronic_break = ((dataArray1[5] & 0x02) >> 1); //It is a Low Brake. The Low brake indication status are stored in this bit . 1bit
+		Motor_Data.Speed_limit = ((dataArray1[5] & 0x01) >> 0); //To set the speed limit using this variable. 1bit
+		Motor_Data.Operating_current = dataArray1[6];//Operating current rating are stored in this variable. 8bit
+		Motor_Data.Speed = ((dataArray1[7] << 8 )| dataArray[8]); //Speed calculation are stored in this variable. Speed byte high(8bit) and speed byte low(8bit) are combined and stored in this single variable. 16bits
+		Motor_Data.Battery_Level = dataArray1[9]; //Battery level are stored in this variable. 8bit
+		Motor_Data.Current_Level = dataArray1[10]; //Current level are stored in this variable. 8bit
+		Motor_Data.Checksum = dataArray1[11]; // Received checksum data's are stored in this variable. 8bit
+		validDataFlag = 0;
+	}
 }
 
 /* USER CODE END 4 */
