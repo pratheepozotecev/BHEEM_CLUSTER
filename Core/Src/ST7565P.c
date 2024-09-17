@@ -118,7 +118,6 @@ void lcd_print_ram_1()
 		}
 	}
 }
-
 void lcd_init(){
 	GPIOA->CRL=0X22222222;
 	GPIOB->BRR|=lcd_chip_sel_Pin;	 				//HAL_GPIO_WritePin(GPIOA,  CS_1_Pin,RESET);// low the cs pin to listen the controller

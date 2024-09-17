@@ -1656,7 +1656,6 @@ void lcd_print_ram_1()
  80011d8:	200007a0 	.word	0x200007a0
 
 080011dc <lcd_init>:
-
 void lcd_init(){
  80011dc:	b580      	push	{r7, lr}
  80011de:	af00      	add	r7, sp, #0
