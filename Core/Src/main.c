@@ -30,6 +30,7 @@
 #define bitSet(value, bit) ((value) |= (1UL << (bit)))
 #define bitClear(value, bit) ((value) &= ~(1UL << (bit)))
 #define  calib_reg 440//1656-165;
+#define poles 24  //6*4
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -78,15 +79,15 @@ uint32_t Odo_Value[10],Odo_Value_1[10];
 uint8_t Km_Flag=1;
 uint8_t first_time=1;
 uint8_t ODO_SEC=1;
+uint8_t sensor_change=0;
 uint8_t trip_reset_state=0;
 int16_t Reserved_SOC=0;
 uint16_t can_delay=500;
 uint8_t can_state=0;
 uint8_t print_pass=0;
 uint8_t Battery_high_Temp=0;
-
 uint16_t print_delay=2000;
-extern uint8_t print_state=1;
+uint8_t print_state=1;
 uint8_t bat_icon_toogle=0;
 uint8_t dataArray1[12];
 uint8_t checksum_error;
@@ -231,8 +232,16 @@ void battery_cycle()
 	lcd_print_digit_wos(3, 109, ((CGC_value)%1000)/100);
 	lcd_print_digit_wos(3, 115, ((((CGC_value)%1000)%100)/10));
 	lcd_print_digit_wos(3, 121, ((((CGC_value)%1000)%100)%10));
-
 }
+
+void version_print()
+{
+	lcd_print_char(6, 3, "VER");
+	lcd_print_digit_wos(7, 4, version1);
+	lcd_print_convert(7, 10, 0x20);
+	lcd_print_digit_wos(7, 13, version2);
+}
+
 uint8_t tog_temp=0;
 void battery_temp()
 {
@@ -430,19 +439,25 @@ void Gear_Status()
 
 void EEPROM_init()
 {
+	I2C_Write_EEPROM(0, 0x00);
   Range.Ref=I2C_Read_EEPROM(ODO_ADDRESS_Ref);
-	 if(Range.Ref!=12345)
+	 if(Range.Ref!=1234)
 	 {
-		 I2C_Write_EEPROM(12345, ODO_ADDRESS_Ref);
+		 I2C_Write_EEPROM(7000, gear_ratio_EEPROM);
+		 I2C_Write_EEPROM(1, speed_sensor_type_EEPROM);
+		 I2C_Write_EEPROM(1234, ODO_ADDRESS_Ref);
 		 I2C_Write_EEPROM(0, last_flash_update_EEPROM);
 		 for(uint8_t inf=0;inf<=9;inf++)  //Read data from EEPROM
 		 {
 			I2C_Write_EEPROM(0,EEPROM_ADDRESS[inf]);
 		 }
+		 HAL_Delay(50);
 	 }
 	 else
 	 {
 		 last_flash_update=I2C_Read_EEPROM(last_flash_update_EEPROM); // read last flash write data
+		 OBD.speed_sensor_type=I2C_Read_EEPROM(speed_sensor_type_EEPROM);
+		 OBD.Gear_ratio=(float)((I2C_Read_EEPROM(gear_ratio_EEPROM))/1000.0);
 
 		 for(uint8_t inf=0;inf<=9;inf++)  //Read data from EEPROM
 		 {
@@ -488,6 +503,8 @@ void EEPROM_init()
 	 }
 	 first_time=3;
 }
+
+
 
 uint8_t can_error=0,can_error_state=0,error_count=0;
 void BMS_CAN()//Transmitter function
@@ -582,32 +599,60 @@ void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan)//Receiver Interr
 
  		if(Rx_Id==0x09021024)
 		{
- 				TxHeader.ExtId =0x09022024; // Extended Identifier
- 				TxHeader.IDE = CAN_ID_EXT; // Identifier Extension
- 				TxHeader.RTR = CAN_RTR_DATA;// Remote Transmission Request bit, here send data frame
- 				TxHeader.DLC = 8;//Data length code
- 				Transmit_Data[0]=0x02;//Flio->1 Bheem->2
- 				Transmit_Data[1]=((Range.Odometer_Value&0xff000000)>>24);//Data
- 				Transmit_Data[2]=((Range.Odometer_Value&0x00ff0000)>>16);//Data
- 				Transmit_Data[3]=((Range.Odometer_Value&0x0000ff00)>>8);//Data
- 				Transmit_Data[4]=((Range.Odometer_Value&0x000000ff));//Data
- 				Transmit_Data[5]=((CGC_value&0xff00)>>8);//Data
- 				Transmit_Data[6]=((CGC_value&0x00ff)>>0);;//Data
- 				Transmit_Data[7]=(Reserved_SOC/10);//Data
+			TxHeader.ExtId =0x09022024; // Extended Identifier
+			TxHeader.IDE = CAN_ID_EXT; // Identifier Extension
+			TxHeader.RTR = CAN_RTR_DATA;// Remote Transmission Request bit, here send data frame
+			TxHeader.DLC = 8;//Data length code
+			Transmit_Data[0]=0x02;//Flio->1 Bheem->2
+			Transmit_Data[1]=((Range.Odometer_Value&0xff000000)>>24);//Data
+			Transmit_Data[2]=((Range.Odometer_Value&0x00ff0000)>>16);//Data
+			Transmit_Data[3]=((Range.Odometer_Value&0x0000ff00)>>8);//Data
+			Transmit_Data[4]=((Range.Odometer_Value&0x000000ff));//Data
+			Transmit_Data[5]=((CGC_value&0xff00)>>8);//Data
+			Transmit_Data[6]=((CGC_value&0x00ff)>>0);;//Data
+			Transmit_Data[7]=(Reserved_SOC/10);//Data
 
- 			   if(HAL_CAN_AddTxMessage(&hcan, &TxHeader, &Transmit_Data[Tx_count], &TxMailBox) != HAL_OK)//Adding data to the mailbox for transmitting
- 				  {
- 				   //Error_Handler();
- 				  }
+		  if(HAL_CAN_AddTxMessage(&hcan, &TxHeader, &Transmit_Data[Tx_count], &TxMailBox) != HAL_OK)//Adding data to the mailbox for transmitting
+		  {
+		   //Error_Handler();
+		  }
+		}
+
+ 		if(Rx_Id==0x09031024)
+		{
+			TxHeader.ExtId =0x09032024; // Extended Identifier
+			TxHeader.IDE = CAN_ID_EXT; // Identifier Extension
+			TxHeader.RTR = CAN_RTR_DATA;// Remote Transmission Request bit, here send data frame
+			TxHeader.DLC = 8;//Data length code
+			Transmit_Data[0]=OBD.speed_sensor_type;//Flio->1 Bheem->2
+			Transmit_Data[1]=(((uint32_t)OBD.Gear_ratio&0xff000000)>>24);//Data
+			Transmit_Data[2]=(((uint32_t)OBD.Gear_ratio&0x00ff0000)>>16);//Data
+			Transmit_Data[3]=(((uint32_t)OBD.Gear_ratio&0x0000ff00)>>8);//Data
+			Transmit_Data[4]=(((uint32_t)OBD.Gear_ratio&0x000000ff));//Data
+			Transmit_Data[5]=0;
+			Transmit_Data[6]=0;
+			Transmit_Data[7]=0;
+		  if(HAL_CAN_AddTxMessage(&hcan, &TxHeader, &Transmit_Data[Tx_count], &TxMailBox) != HAL_OK)//Adding data to the mailbox for transmitting
+		  {
+		   //Error_Handler();
+		  }
 		}
  	}
 }
 
 uint16_t pluse_count=0;uint8_t bike_speed;
-uint8_t ODO_Loc=1,ODO_sample_1,ODO_sample_2,ODO_Loc_state_10,ODO_Loc_state_11,ODO_Loc_state_20,ODO_Loc_state_21,ODO_Loc_state_30,ODO_Loc_state_31,ODO_Loc_state_40,ODO_Loc_state_41;
+float speed_result_float=0;
 void ODO_PRINT()
 {
-	lcd_speed(bike_speed);
+	if(OBD.speed_sensor_type==1)
+	{
+		lcd_speed(bike_speed,OBD.speed_sensor_type);
+	}
+	else
+	{
+		lcd_speed((int)speed_result_float,OBD.speed_sensor_type);
+	}
+
 	lcd_clear(0, 96, 51);
 	uint8_t first_1=DTE/100;
 	uint8_t second_1=((DTE%100)/10);
@@ -634,66 +679,34 @@ void ODO_PRINT()
 	lcd_print_digit_wos(5, 68,fourth);
 	lcd_print_digit_wos(5, 74,fifth);
 	lcd_print_digit_wos(5, 80,sixth);
-	lcd_print_char(5,89, "km");
+	lcd_print_char(5,87, "km");
+
 }
 uint16_t speed_temp1=0;
-uint32_t controller_speed_data=0,Multipli;
-//void speed()
-//{
-//	if(Motor_Data.Device_Code==13)
-//	{
-//		if(dataArray1[7]==106)
-//		{
-//			if((dataArray[8]>=106)&&(dataArray1[8]<=255))
-//			{
-//				speed_temp1=dataArray1[8]-106;
-//			}
-//			if((dataArray[8]>=0)&&(dataArray1[8]<=105))
-//			{
-//				speed_temp1=dataArray1[8]+149;
-//			}
-//		}
-//
-//		if(dataArray1[7]==107)
-//		{
-//			if((dataArray[8]>=106)&&(dataArray1[8]<=255))
-//			{
-//				speed_temp1=dataArray1[8]+149;
-//			}
-//			if((dataArray[8]>=0)&&(dataArray1[8]<=105))
-//			{
-//				speed_temp1=dataArray1[8]+404;
-//			}
-//		}
-//
-//		if(dataArray1[7]==108)
-//		{
-//			if((dataArray[8]>=106)&&(dataArray1[8]<=255))
-//			{
-//				speed_temp1=dataArray1[8]+404;
-//			}
-//			if((dataArray[8]>=0)&&(dataArray1[8]<=105))
-//			{
-//				speed_temp1=dataArray1[8]+659;
-//			}
-//		}
-//
-//		controller_speed_data=speed_temp1*Multipli;
-//	}
-//}
+uint32_t controller_speed_data=0;
+uint16_t meter_count=0,meter_sec=0;
 
 void ODO_calculation()
 {
 	if(after_sec)
 	{
-		bike_speed=((speed_count*360)/calib_reg);
-		pluse_count+=speed_count;
-		after_sec=0;
+		if(OBD.speed_sensor_type==1)
+		{
+			bike_speed=((speed_count*360)/calib_reg);
+			pluse_count+=speed_count;
+			after_sec=0;
+		}
+		else
+		{
+			speed_result_float =(((((float)controller_speed_data * 12305)/poles)/1000)/OBD.Gear_ratio); // ((((N*7200*D*Pi)/P)/1000)/gear_ratio)
+			meter_sec=(int)((speed_result_float)*0.2777);    //m/sec  1000/3600
+			meter_count=meter_count+meter_sec;
+		}
 	}
 
-	if(pluse_count>=calib_reg)
+	if((pluse_count>=calib_reg)||(meter_count>=100))
 	{
-		pluse_count=0;
+		pluse_count=meter_count=0;
 		Range.Odometer_Value++;
 		I2C_Write_EEPROM(Range.Odometer_Value,EEPROM_ADDRESS[ADR_LOC]);
 		Odo_Value[ADR_LOC]=Range.Odometer_Value_temp=I2C_Read_EEPROM(EEPROM_ADDRESS[ADR_LOC]);
@@ -776,6 +789,7 @@ int main(void)
      else
      {
 		lcd_into();
+
 		HAL_Delay(500);
 		lcd_clear(0, 0, 127);
 		lcd_clear(1, 0, 127);
@@ -824,6 +838,12 @@ int main(void)
 		Lcd_cmd(0x40);
 		lcd_invert_process();
 		lcd_print_ram_1();
+	  }
+	  if(sensor_change)
+	  {
+		  sensor_change=0;
+		  I2C_Write_EEPROM(OBD.Gear_ratio,gear_ratio_EEPROM);
+		  I2C_Write_EEPROM(OBD.speed_sensor_type,speed_sensor_type_EEPROM);
 	  }
 		if((Range.Odometer_Value>=last_flash_update+1000)&&(Range.Odometer_Value<=last_flash_update+1010))
 		{
@@ -979,7 +999,7 @@ static void MX_IWDG_Init(void)
   /* USER CODE END IWDG_Init 1 */
   hiwdg.Instance = IWDG;
   hiwdg.Init.Prescaler = IWDG_PRESCALER_128;
-  hiwdg.Init.Reload = 1560;
+  hiwdg.Init.Reload = 1000;
   if (HAL_IWDG_Init(&hiwdg) != HAL_OK)
   {
     Error_Handler();
@@ -1354,7 +1374,53 @@ void processData(void) { // find out the synchronization period and converting d
 		Motor_Data.Current_Level = dataArray1[10]; //Current level are stored in this variable. 8bit
 		Motor_Data.Checksum = dataArray1[11]; // Received checksum data's are stored in this variable. 8bit
 		validDataFlag = 0;
+
+
+		if(Motor_Data.Device_Code==13)
+			{
+				if(dataArray1[7]==106)
+				{
+					if((dataArray[8]>=106)&&(dataArray1[8]<=255))
+					{
+						speed_temp1=dataArray1[8]-106;
+					}
+					if((dataArray[8]>=0)&&(dataArray1[8]<=105))
+					{
+						speed_temp1=dataArray1[8]+149;
+					}
+				}
+
+				if(dataArray1[7]==107)
+				{
+					if((dataArray[8]>=106)&&(dataArray1[8]<=255))
+					{
+						speed_temp1=dataArray1[8]+149;
+					}
+					if((dataArray[8]>=0)&&(dataArray1[8]<=105))
+					{
+						speed_temp1=dataArray1[8]+404;
+					}
+				}
+
+				if(dataArray1[7]==108)
+				{
+					if((dataArray[8]>=106)&&(dataArray1[8]<=255))
+					{
+						speed_temp1=dataArray1[8]+404;
+					}
+					if((dataArray[8]>=0)&&(dataArray1[8]<=105))
+					{
+						speed_temp1=dataArray1[8]+659;
+					}
+				}
+				controller_speed_data=speed_temp1*1.1;
 	}
+		if(Motor_Data.Device_Code==8)
+		{
+			controller_speed_data=Motor_Data.Speed*1.1;
+		}
+
+}
 }
 
 /* USER CODE END 4 */

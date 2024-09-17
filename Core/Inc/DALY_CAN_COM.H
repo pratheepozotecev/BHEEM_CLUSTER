@@ -19,7 +19,7 @@
 #define ID_98 0x18984001
 #define ID_52 0x18524001
 #define ID_50 0x18504001
-#define ID_01 0x09011024
+#define ID_01 0x09012024
 #define ID_02 0x09021024
 
 void merge(uint32_t);//Declaration
@@ -188,8 +188,7 @@ struct ReceivedData// Structure for declaring needed variables
 
 struct conzo
 {
-	uint16_t sensor_divider_1;
-	uint16_t sensor_divider_2;
+	float Gear_ratio;
 	uint8_t speed_sensor_type;
 }OBD;
 

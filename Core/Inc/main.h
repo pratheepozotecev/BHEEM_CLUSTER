@@ -100,10 +100,14 @@ void Error_Handler(void);
 
 /* USER CODE BEGIN Private defines */
 
-#define CGC_value_EEPROM 0xB0
+#define version1 1
+#define version2 0
+
 #define ODO_ADDRESS_Ref 0XC0
 #define last_flash_update_EEPROM 0xD0
-#define last_flash_update_Address 0x0800EFC4
+#define gear_ratio_EEPROM 0xE0
+#define speed_sensor_type_EEPROM 0xB0
+//#define last_flash_update_Address 0x0800EFC4
 
 /* USER CODE END Private defines */
 

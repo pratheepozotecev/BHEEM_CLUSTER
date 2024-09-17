@@ -10,6 +10,8 @@
 uint8_t lcd_temp_ram[8][128];
 uint8_t lcd_temp_ram_1[8][128];
 uint8_t Read_data[8][128];
+
+extern uint8_t print_state;
 //uint8_t cmd_rx;
 //uint64_t cmd_count;
 void Lcd_cmd(uint8_t cmd)
@@ -102,9 +104,11 @@ void lcd_print_ram_1()
 				Display_error++;
 				temp_dot=x_axsis;
 				temp_dot_1=y_axsis;
-				if(Display_error>=5)
+				if(Display_error>=10)
 				{
-					while(1);
+					print_state=1;
+					lcd_init();
+					break;
 				}
 			}
 			else
@@ -116,11 +120,11 @@ void lcd_print_ram_1()
 }
 
 void lcd_init(){
-
-		GPIOB->BRR|=lcd_chip_sel_Pin;	 				//HAL_GPIO_WritePin(GPIOA,  CS_1_Pin,RESET);// low the cs pin to listen the controller
-		HAL_GPIO_WritePin(GPIOB, lcd_reset_Pin,RESET); // low reset button
-		HAL_Delay(50); // wait for 500ms
-		HAL_GPIO_WritePin(GPIOB, lcd_reset_Pin,SET); // high the reset button for initial reset
+	GPIOA->CRL=0X22222222;
+	GPIOB->BRR|=lcd_chip_sel_Pin;	 				//HAL_GPIO_WritePin(GPIOA,  CS_1_Pin,RESET);// low the cs pin to listen the controller
+	HAL_GPIO_WritePin(GPIOB, lcd_reset_Pin,RESET); // low reset button
+	HAL_Delay(50); // wait for 500ms
+	HAL_GPIO_WritePin(GPIOB, lcd_reset_Pin,SET); // high the reset button for initial reset
 
 	  // LCD bias select
 	  Lcd_cmd(CMD_SET_BIAS_9);
@@ -153,7 +157,6 @@ void lcd_init(){
 	  // set page address
 	  // set column address
 	  // write display data
-
 	  // set up a bounding box for screen updates
 
 	  Lcd_cmd(0xAF);    //Display on
@@ -177,13 +180,13 @@ void lcd_invert_process()
 	}
 }
 
-void lcd_speed(uint8_t num){
+void lcd_speed(uint8_t num,uint8_t sen_type)
+{
 	uint8_t x_axis,y_axis,value_num=0,first_num,second_num,third_num;
     first_num=num/100;
     second_num=((num%100)/10);
     third_num=((num%100)%10);
     value_num=0;
-
 
    for(y_axis=0;y_axis<4;y_axis++)
 	{
@@ -204,15 +207,30 @@ void lcd_speed(uint8_t num){
          }
      }
     value_num=0;
-    for(y_axis=0;y_axis<1;y_axis++)
-        {
-            for(x_axis=0;x_axis<21;x_axis++)
-            {
 
-                lcd_print_convert((4+(y_axis)),(x_axis+52),kmph[value_num]);
-                value_num++;
-            }
-        }
+    if(sen_type==1)
+    {
+        for(y_axis=0;y_axis<1;y_axis++)
+    	{
+    		for(x_axis=0;x_axis<21;x_axis++)
+    		{
+    			lcd_print_convert((4+(y_axis)),(x_axis+52),kmph[value_num]);
+    			value_num++;
+    		}
+    	}
+    }
+
+    if(sen_type==2)
+    {
+        for(y_axis=0;y_axis<1;y_axis++)
+    	{
+    		for(x_axis=0;x_axis<24;x_axis++)
+    		{
+    			lcd_print_convert((4+(y_axis)),(x_axis+52),kmph[value_num]);
+    			value_num++;
+    		}
+    	}
+    }
 }
 
 void battery_charge_soc(uint16_t num){
@@ -505,6 +523,7 @@ void lcd_into()
 				lcd_print_convert(y_axsis,x_axsis,intro1[temp++]);
 			}
 		}
+	  version_print();
 	 Lcd_cmd(0xA2);// ADC select
 	 Lcd_cmd(0xA0);// SHL select
 	 Lcd_cmd(0xC0);// Initial display line
