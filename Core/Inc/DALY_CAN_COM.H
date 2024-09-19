@@ -22,6 +22,9 @@
 #define ID_01 0x09012024
 #define ID_02 0x09021024
 
+#define IDT_02 0x09022024
+#define IDT_03 0x09031024
+
 void merge(uint32_t);//Declaration
 uint8_t Received_Data[8];// Receiving data are stored in this variable
 struct ReceivedData// Structure for declaring needed variables

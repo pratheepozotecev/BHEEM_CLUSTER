@@ -234,13 +234,7 @@ void battery_cycle()
 	lcd_print_digit_wos(3, 121, ((((CGC_value)%1000)%100)%10));
 }
 
-void version_print()
-{
-	lcd_print_char(6, 3, "VER");
-	lcd_print_digit_wos(7, 4, version1);
-	lcd_print_convert(7, 10, 0x20);
-	lcd_print_digit_wos(7, 13, version2);
-}
+
 
 uint8_t tog_temp=0;
 void battery_temp()
@@ -510,20 +504,19 @@ uint8_t can_error=0,can_error_state=0,error_count=0;
 void BMS_CAN()//Transmitter function
 {
 	for(Tx_count=0; Tx_count<12; Tx_count++)
-	  {
+	{
 		TxHeader.ExtId = BMS_ID[Tx_count]; // Extended Identifier
 		TxHeader.IDE = CAN_ID_EXT; // Identifier Extension
 		TxHeader.RTR = CAN_RTR_DATA;// Remote Transmission Request bit, here send data frame
 		TxHeader.DLC = 8;//Data length code
 		Transmit_Data[Tx_count]=0x00;//Data
 
-	   if(HAL_CAN_AddTxMessage(&hcan, &TxHeader, &Transmit_Data[Tx_count], &TxMailBox) != HAL_OK)//Adding data to the mailbox for transmitting
-		  {
-		   //Error_Handler();
-		  }
-	  HAL_Delay(50);
-	  }
-
+		if(HAL_CAN_AddTxMessage(&hcan, &TxHeader, &Transmit_Data[Tx_count], &TxMailBox) != HAL_OK)//Adding data to the mailbox for transmitting
+		{
+			//Error_Handler();
+		}
+		HAL_Delay(50);
+	}
 		if(can_error_state==0) // Can Error finder
 		{
 			if(can_error)
@@ -586,7 +579,8 @@ void battery_bar_soc()
 		battery_bar_print(0);
 	}
 }
-
+uint8_t rx=0;
+uint8_t can_gear_req=0;
 void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan)//Receiver Interrupt Function
 {
  	if(HAL_CAN_GetRxMessage(hcan, CAN_RX_FIFO0, &RxHeader, Received_Data) == HAL_OK)//Receiving data through FIFO
@@ -596,49 +590,65 @@ void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan)//Receiver Interr
  		can_error_state=0;
  		can_error=0;
  		error_count=0;
-
- 		if(Rx_Id==0x09021024)
-		{
-			TxHeader.ExtId =0x09022024; // Extended Identifier
-			TxHeader.IDE = CAN_ID_EXT; // Identifier Extension
-			TxHeader.RTR = CAN_RTR_DATA;// Remote Transmission Request bit, here send data frame
-			TxHeader.DLC = 8;//Data length code
-			Transmit_Data[0]=0x02;//Flio->1 Bheem->2
-			Transmit_Data[1]=((Range.Odometer_Value&0xff000000)>>24);//Data
-			Transmit_Data[2]=((Range.Odometer_Value&0x00ff0000)>>16);//Data
-			Transmit_Data[3]=((Range.Odometer_Value&0x0000ff00)>>8);//Data
-			Transmit_Data[4]=((Range.Odometer_Value&0x000000ff));//Data
-			Transmit_Data[5]=((CGC_value&0xff00)>>8);//Data
-			Transmit_Data[6]=((CGC_value&0x00ff)>>0);;//Data
-			Transmit_Data[7]=(Reserved_SOC/10);//Data
-
-		  if(HAL_CAN_AddTxMessage(&hcan, &TxHeader, &Transmit_Data[Tx_count], &TxMailBox) != HAL_OK)//Adding data to the mailbox for transmitting
-		  {
-		   //Error_Handler();
-		  }
-		}
-
- 		if(Rx_Id==0x09031024)
-		{
-			TxHeader.ExtId =0x09032024; // Extended Identifier
-			TxHeader.IDE = CAN_ID_EXT; // Identifier Extension
-			TxHeader.RTR = CAN_RTR_DATA;// Remote Transmission Request bit, here send data frame
-			TxHeader.DLC = 8;//Data length code
-			Transmit_Data[0]=OBD.speed_sensor_type;//Flio->1 Bheem->2
-			Transmit_Data[1]=(((uint32_t)OBD.Gear_ratio&0xff000000)>>24);//Data
-			Transmit_Data[2]=(((uint32_t)OBD.Gear_ratio&0x00ff0000)>>16);//Data
-			Transmit_Data[3]=(((uint32_t)OBD.Gear_ratio&0x0000ff00)>>8);//Data
-			Transmit_Data[4]=(((uint32_t)OBD.Gear_ratio&0x000000ff));//Data
-			Transmit_Data[5]=0;
-			Transmit_Data[6]=0;
-			Transmit_Data[7]=0;
-		  if(HAL_CAN_AddTxMessage(&hcan, &TxHeader, &Transmit_Data[Tx_count], &TxMailBox) != HAL_OK)//Adding data to the mailbox for transmitting
-		  {
-		   //Error_Handler();
-		  }
-		}
+ 		if((Rx_Id==0x09021024)||(Rx_Id==0x09031024))
+ 		{
+ 			rx=1;
+ 		}
  	}
 }
+
+void Tx_fun(uint32_t TX_data)
+{
+
+		switch (TX_data)
+		{
+			case IDT_02:
+			{
+				TxHeader.ExtId =0x09022024; // Extended Identifier
+				TxHeader.IDE = CAN_ID_EXT; // Identifier Extension
+				TxHeader.RTR = CAN_RTR_DATA;// Remote Transmission Request bit, here send data frame
+				TxHeader.DLC = 8;//Data length code
+				Transmit_Data[0]=0x02;//Flio->1 Bheem->2
+				Transmit_Data[1]=((Range.Odometer_Value&0xff000000)>>24);//Data
+				Transmit_Data[2]=((Range.Odometer_Value&0x00ff0000)>>16);//Data
+				Transmit_Data[3]=((Range.Odometer_Value&0x0000ff00)>>8);//Data
+				Transmit_Data[4]=((Range.Odometer_Value&0x000000ff));//Data
+				Transmit_Data[5]=((CGC_value&0xff00)>>8);//Data
+				Transmit_Data[6]=((CGC_value&0x00ff)>>0);;//Data
+				Transmit_Data[7]=(Reserved_SOC/10);//Data
+
+				if(HAL_CAN_AddTxMessage(&hcan, &TxHeader, &Transmit_Data[Tx_count], &TxMailBox) != HAL_OK)//Adding data to the mailbox for transmitting
+				{
+				//Error_Handler();
+				}
+				break;
+			}
+			case IDT_03:
+			{
+
+				TxHeader.ExtId =0x09032024; // Extended Identifier
+				TxHeader.IDE = CAN_ID_EXT; // Identifier Extension
+				TxHeader.RTR = CAN_RTR_DATA;// Remote Transmission Request bit, here send data frame
+				TxHeader.DLC = 8;//Data length code
+				Transmit_Data[0]=OBD.speed_sensor_type;//Front->1 back->2
+				Transmit_Data[1]=(((uint32_t)OBD.Gear_ratio&0xff000000)>>24);//Data
+				Transmit_Data[2]=(((uint32_t)OBD.Gear_ratio&0x00ff0000)>>16);//Data
+				Transmit_Data[3]=(((uint32_t)OBD.Gear_ratio&0x0000ff00)>>8);//Data
+				Transmit_Data[4]=(((uint32_t)OBD.Gear_ratio&0x000000ff));//Data
+				Transmit_Data[5]=0;
+				Transmit_Data[6]=0;
+				Transmit_Data[7]=0;
+				if(HAL_CAN_AddTxMessage(&hcan, &TxHeader, &Transmit_Data[Tx_count], &TxMailBox) != HAL_OK)//Adding data to the mailbox for transmitting
+				{
+					//Error_Handler();
+				}
+				break;
+			}
+			default:
+					break;
+		}
+		rx=0;
+	}
 
 uint16_t pluse_count=0;uint8_t bike_speed;
 float speed_result_float=0;
@@ -789,7 +799,6 @@ int main(void)
      else
      {
 		lcd_into();
-
 		HAL_Delay(500);
 		lcd_clear(0, 0, 127);
 		lcd_clear(1, 0, 127);
@@ -849,6 +858,10 @@ int main(void)
 		{
 			last_flash_update=Range.Odometer_Value;
 			I2C_Write_EEPROM(last_flash_update,last_flash_update_EEPROM);
+		}
+		if(rx)
+		{
+			Tx_fun(Rx_Id);
 		}
 		HAL_IWDG_Refresh(&hiwdg);
   }
@@ -1173,25 +1186,25 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) // To create a every
 	 }
 
 	 if(m_sec==speed_time)
-	 	{
-			 if(doc>5)
-			 {
-				doc=0;
-				speed_time=m_sec+1000;
-				speed_count =last_count;
-				after_sec=1;
-				speed_count_temp=0;
-			 }
-			 else
-			 {
-				doc=0;
-				speed_time=m_sec+1000;
-				speed_count =speed_count_temp;;
-				last_count=speed_count;
-				after_sec=1;
-				speed_count_temp=0;
-			 }
-	 	}
+	 {
+		 if(doc>5)
+		 {
+			doc=0;
+			speed_time=m_sec+1000;
+			speed_count =last_count;
+			after_sec=1;
+			speed_count_temp=0;
+		 }
+		 else
+		 {
+			doc=0;
+			speed_time=m_sec+1000;
+			speed_count =speed_count_temp;;
+			last_count=speed_count;
+			after_sec=1;
+			speed_count_temp=0;
+		 }
+	 }
 
 	 if(m_sec == can_buzzer_delay)
 	 {
@@ -1218,40 +1231,40 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) // To create a every
 	 if(Pin_State == 1)
 	 {
 	 if(timerCounter2>=30)		// after every 750us only check the signal data from external interrupt pin.
-		 {
-		 	 HAL_GPIO_TogglePin(GPIOB, Test_pin_Pin);
-		 	 test_bit++;
-			if(HAL_GPIO_ReadPin(GPIOB, ONE_WIRE_PRT_Pin)) 		//after 750us pin in high state , data 0
-			{
-				bitClear(dataArray[signalCounter],bit_count);
-			}
-			else
-			{
-				bitSet(dataArray[signalCounter],bit_count);		//after 750us pin in low state , data 1
-			}
-			Pin_State = 0;
-			bit_count--;
+	{
+		 HAL_GPIO_TogglePin(GPIOB, Test_pin_Pin);
+		 test_bit++;
+		if(HAL_GPIO_ReadPin(GPIOB, ONE_WIRE_PRT_Pin)) 		//after 750us pin in high state , data 0
+		{
+			bitClear(dataArray[signalCounter],bit_count);
+		}
+		else
+		{
+			bitSet(dataArray[signalCounter],bit_count);		//after 750us pin in low state , data 1
+		}
+		Pin_State = 0;
+		bit_count--;
 
-			if(bit_count<0) 		// bit decrement for 7 to 0
-			{
-				signalCounter++;
-				bit_count=7;
-			}
+		if(bit_count<0) 		// bit decrement for 7 to 0
+		{
+			signalCounter++;
+			bit_count=7;
+		}
 
-			if(signalCounter >= 12)		//byte increment 0 to 12
+		if(signalCounter >= 12)		//byte increment 0 to 12
+		{
+			signalCounter = 0;
+			syncFlag = 1;
+			SYC_DATA=0;
+			timerCounter3=0;
+			for(uint8_t i = 0; i < 12;i++)
 			{
-				signalCounter = 0;
-				syncFlag = 1;
-				SYC_DATA=0;
-				timerCounter3=0;
-				for(uint8_t i = 0; i < 12;i++)
-				{
-					dataArray1[i]=dataArray[i];		//The received data are stored in another array and it will wait for next data reception.
-				}
-				 processData();    	//after storing the data should be processed for structure for easy access to the user.
+				dataArray1[i]=dataArray[i];		//The received data are stored in another array and it will wait for next data reception.
 			}
-			timerCounter2 = 0;
-	    }
+			 processData();    	//after storing the data should be processed for structure for easy access to the user.
+		}
+		timerCounter2 = 0;
+	}
 	 }
   }
 }

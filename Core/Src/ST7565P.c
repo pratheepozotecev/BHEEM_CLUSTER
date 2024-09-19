@@ -25,7 +25,6 @@ void Lcd_cmd(uint8_t cmd)
 	GPIOB->BRR|=LCD_RD_Pin;
 	GPIOB->ODR|=lcd_chip_sel_Pin;   //CS_1(SET);
 
-//
 //	GPIOB->BRR|=lcd_adr_Pin;  //Address(RESET);
 //	GPIOB->BRR|=lcd_chip_sel_Pin;  //CS_1(RESET);
 //	cmd_rx=GPIOA->IDR & 0xFF;
@@ -218,8 +217,7 @@ void lcd_speed(uint8_t num,uint8_t sen_type)
     		}
     	}
     }
-
-    if(sen_type==2)
+    else
     {
         for(y_axis=0;y_axis<1;y_axis++)
     	{
@@ -512,6 +510,23 @@ void lcd_print_digit(uint8_t y_axis_start, uint8_t x_axis_start,uint16_t print_v
 uint8_t print_value_int=0;
 }
 
+
+void version_print()
+{
+	uint8_t temp_gear = 0;
+
+		for(uint8_t x_axsis=5; x_axsis<=18;x_axsis++)
+		{
+			lcd_print_convert(6,x_axsis,Version_icon[temp_gear++]);
+		}
+	lcd_print_digit_wos(7, 4, version1);
+	lcd_print_convert(7, 10, 0x20);
+	lcd_print_digit_wos(7, 13, version2);
+}
+
+
+
+
 void lcd_into()
 {
 	uint16_t temp=0;
@@ -530,7 +545,6 @@ void lcd_into()
 	 lcd_invert_process();
 	 lcd_print_ram_1();
 }
-
 
 void lcd_print_convert(uint8_t y_axsis,uint8_t x_axsis,uint8_t data)
 {
